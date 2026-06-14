@@ -1,12 +1,13 @@
 {
   "name": "empire-galactique",
-  "version": "0.1.0",
-  "description": "Jeu de conquête spatiale multijoueur",
+  "version": "0.2.0",
+  "description": "Jeu de conquete spatiale multijoueur",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
   }
 }
