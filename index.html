@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Empire Galactique</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; overflow:hidden; background:#03040b; font-family:-apple-system,Segoe UI,Roboto,sans-serif; color:#fff; }
+  #jeu { position:fixed; inset:0; }
+  canvas { display:block; cursor:grab; }
+  /* --- écran de connexion --- */
+  #connexion { position:fixed; inset:0; background:radial-gradient(ellipse at 50% 40%,#0a1228,#03040b); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; }
+  #connexion h1 { font-size:clamp(28px,6vw,46px); letter-spacing:2px; margin-bottom:8px; background:linear-gradient(90deg,#9bd5d0,#9bb8ff,#ffb0d8); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+  #connexion p { color:#8a97b5; margin-bottom:30px; font-size:14px; }
+  #connexion input { width:260px; max-width:80vw; padding:12px 16px; border-radius:10px; border:1px solid #2a3a5a; background:#0a1020; color:#fff; font-size:16px; text-align:center; outline:none; }
+  #connexion input:focus { border-color:#9bb8ff; }
+  #connexion button { margin-top:14px; padding:12px 32px; border-radius:10px; border:none; background:linear-gradient(90deg,#3a6ad5,#5b9bd5); color:#fff; font-size:16px; font-weight:600; cursor:pointer; transition:transform .1s; }
+  #connexion button:active { transform:scale(0.97); }
+  #msg { margin-top:14px; font-size:13px; min-height:18px; color:#ff9b7a; }
+  /* --- interface en jeu --- */
+  #hud { position:fixed; top:10px; left:10px; z-index:5; font-size:12px; color:rgba(255,255,255,0.8); background:rgba(0,0,0,0.45); padding:8px 12px; border-radius:8px; pointer-events:none; }
+  #hud strong { color:#9bd5d0; }
+  #joueurs-en-ligne { position:fixed; top:10px; right:10px; z-index:5; font-size:12px; color:rgba(255,255,255,0.75); background:rgba(0,0,0,0.45); padding:8px 12px; border-radius:8px; max-width:200px; }
+  #joueurs-en-ligne h4 { font-size:11px; color:#9bb8ff; margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
+  #scale-badge { position:fixed; bottom:10px; left:10px; z-index:5; font-size:12px; color:rgba(255,255,255,0.7); background:rgba(0,0,0,0.45); padding:4px 10px; border-radius:6px; pointer-events:none; }
+  #info { position:fixed; bottom:10px; left:50%; transform:translateX(-50%); z-index:5; font-size:12px; color:#fff; background:rgba(0,0,0,0.55); padding:8px 14px; border-radius:8px; pointer-events:none; opacity:0; transition:opacity .15s; white-space:nowrap; }
+</style>
+</head>
+<body>
+
+<div id="connexion">
+  <h1>EMPIRE GALACTIQUE</h1>
+  <p>Conquête spatiale · univers persistant</p>
+  <input id="pseudo" type="text" placeholder="Ton pseudo de commandant" maxlength="20" autocomplete="off">
+  <button id="entrer">Entrer dans la galaxie</button>
+  <div id="msg"></div>
+</div>
+
+<div id="jeu" style="display:none">
+  <canvas id="sky"></canvas>
+  <div id="hud">Commandant : <strong id="moncom">—</strong></div>
+  <div id="joueurs-en-ligne"><h4>Commandants</h4><div id="liste-joueurs">—</div></div>
+  <div id="scale-badge">Galaxie</div>
+  <div id="info"></div>
+</div>
+
+<script>
+// ============================================================
+//  EMPIRE GALACTIQUE — client
+//  Le serveur fournit la GRAINE de la galaxie : tous les joueurs
+//  voient donc exactement le meme univers.
+// ============================================================
+
+let GRAINE = 20260614; // valeur par defaut, sera remplacee par celle du serveur
+let MON_PSEUDO = null;
+
+// ---------- CONNEXION ----------
+const elConnexion = document.getElementById('connexion');
+const elJeu = document.getElementById('jeu');
+const elPseudo = document.getElementById('pseudo');
+const elMsg = document.getElementById('msg');
+
+document.getElementById('entrer').addEventListener('click', entrer);
+elPseudo.addEventListener('keydown', e => { if(e.key==='Enter') entrer(); });
+
+async function entrer(){
+  const pseudo = elPseudo.value.trim();
+  if(pseudo.length < 2){ elMsg.textContent = "Choisis un pseudo (2 lettres min)."; return; }
+  elMsg.style.color = '#8a97b5'; elMsg.textContent = "Connexion...";
+  try {
+    const r = await fetch('/api/connexion', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ pseudo })
+    });
+    const data = await r.json();
+    if(data.graine) GRAINE = data.graine;
+    MON_PSEUDO = data.pseudo || pseudo;
+    document.getElementById('moncom').textContent = MON_PSEUDO;
+    elConnexion.style.display='none';
+    elJeu.style.display='block';
+    demarrerJeu();
+    rafraichirJoueurs();
+    setInterval(rafraichirJoueurs, 5000); // maj liste toutes les 5s
+  } catch(e){
+    elMsg.style.color = '#ff9b7a';
+    elMsg.textContent = "Serveur injoignable. Réessaie dans un instant.";
+  }
+}
+
+async function rafraichirJoueurs(){
+  try {
+    const r = await fetch('/api/joueurs');
+    const data = await r.json();
+    const liste = (data.joueurs||[]).map(j =>
+      (j.nom===MON_PSEUDO?'<span style="color:#9bd5d0">▸ '+j.nom+'</span>':j.nom)
+    ).join('<br>');
+    document.getElementById('liste-joueurs').innerHTML = liste || '—';
+  } catch(e){}
+}
+
+// ============================================================
+//  LE MOTEUR DE GALAXIE (identique a la previsualisation)
+// ============================================================
+function demarrerJeu(){
+  const canvas=document.getElementById('sky');
+  const ctx=canvas.getContext('2d');
+  const scaleBadge=document.getElementById('scale-badge');
+  const info=document.getElementById('info');
+
+  let W,H,DPR;
+  function resize(){
+    DPR=window.devicePixelRatio||1;
+    W=window.innerWidth; H=window.innerHeight;
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    canvas.width=W*DPR; canvas.height=H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize',resize);
+
+  const cam={x:0,y:0,zoom:0.5,tx:0,ty:0,tzoom:0.5};
+  function w2s(wx,wy){ return {x:(wx-cam.x)*cam.zoom+W/2, y:(wy-cam.y)*cam.zoom+H/2}; }
+  function s2w(sx,sy){ return {x:(sx-W/2)/cam.zoom+cam.x, y:(sy-H/2)/cam.zoom+cam.y}; }
+  function rng(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+
+  const PALETTES={
+    tellurique:{water:'#3a5a8a',land:'#6b7a4a',high:'#9a8a5a',polar:'#dde8ee',atmo:'120,160,210',label:'Tellurique'},
+    ocean:{water:'#1c5a9a',land:'#3a8a5a',high:'#7aaa6a',polar:'#e8f4f8',atmo:'120,190,240',label:'Océanique'},
+    desert:{water:'#8a5a3a',land:'#c08a4a',high:'#e0b878',polar:'#f0e0c0',atmo:'220,170,110',label:'Désertique'},
+    volcanique:{water:'#3a1a1a',land:'#6a2a1a',high:'#c84a20',polar:'#8a3a2a',atmo:'255,120,60',label:'Volcanique'},
+    glace:{water:'#7aa8c8',land:'#a8d0e0',high:'#d8eef8',polar:'#ffffff',atmo:'180,220,255',label:'Glaciaire'},
+    gazeuse:{atmo:'220,190,140',label:'Géante gazeuse'}
+  };
+  const PTYPES=['tellurique','ocean','desert','volcanique','glace','gazeuse'];
+  const STARCOLORS=['#ffd27a','#9bb8ff','#ff9b7a','#fff0d0','#ffb0d8','#fff2c0'];
+  const ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+  const PLANET_NAMES=['Prime','Minor','Major','Nova','Secunda','Tertia','Borealis','Australis','Magna','Ultima'];
+
+  const SYSTEMS=[];
+  (function genGalaxy(){
+    const r=rng(GRAINE);
+    const names=['Helios','Vega','Altaïr','Cygnus','Draconis','Orion','Lyra','Phénix','Antarès','Rigel',
+      'Castor','Pollux','Sirius','Arcturus','Mizar','Tycho','Procyon','Bellatrix','Deneb','Spica',
+      'Capella','Régulus','Aldébaran','Bételgeuse','Fomalhaut','Achernar','Hadar','Acrux','Mira','Algol',
+      'Naos','Wezen','Sargas','Shaula','Adhara','Nunki','Alnilam','Saiph','Atria','Avior'];
+    const COUNT=40, R=2600, arms=3;
+    for(let i=0;i<COUNT;i++){
+      const arm=i%arms, tt=i/COUNT;
+      const ang=tt*5 + arm*(6.28/arms) + r()*0.4;
+      const dist=140+Math.pow(tt,0.62)*R;
+      const sysName=names[i%names.length]+(i>=names.length?' '+Math.floor(i/names.length+1):'');
+      const sys={ name:sysName, x:Math.cos(ang)*dist+(r()-0.5)*140, y:Math.sin(ang)*dist*0.72+(r()-0.5)*140,
+        starColor:STARCOLORS[Math.floor(r()*STARCOLORS.length)], starR:0.8+r()*0.9, seed:1000+i, planets:[] };
+      const pr=rng(sys.seed);
+      const pc=3+Math.floor(pr()*4);
+      for(let j=0;j<pc;j++){
+        const type=PTYPES[Math.floor(pr()*PTYPES.length)];
+        const useProperName=pr()>0.65;
+        const pname=useProperName ? sysName.split(' ')[0]+' '+PLANET_NAMES[Math.floor(pr()*PLANET_NAMES.length)]
+          : sysName.split(' ')[0]+' '+ROMAN[j];
+        sys.planets.push({ name:pname, type, a:46+j*42+pr()*18, e:pr()*0.1, period:80+j*140+pr()*200,
+          size:4+pr()*(type==='gazeuse'?9:4), seed:sys.seed*10+j, angle:pr()*6.28,
+          ring:type==='gazeuse'&&pr()>0.5, moons:pr()>0.7?1:0 });
+      }
+      SYSTEMS.push(sys);
+    }
+  })();
+
+  const texCache={};
+  function getTex(p){
+    if(texCache[p.seed]) return texCache[p.seed];
+    const R=64; const off=document.createElement('canvas'); off.width=R*2; off.height=R*2;
+    const o=off.getContext('2d'); const r=rng(p.seed);
+    let pal=PALETTES[p.type]||PALETTES.tellurique;
+    if(p.type==='gazeuse'){
+      const bands=['#c8a878','#a88858','#d8c098','#9a7848','#e0d0a8','#b89868'];
+      for(let y=0;y<R*2;y++){ const bi=Math.floor((Math.sin(y*0.05+r()*0.3)*0.5+0.5)*bands.length);
+        o.fillStyle=bands[Math.min(bands.length-1,bi)]; o.globalAlpha=0.85+r()*0.15; o.fillRect(0,y,R*2,1); }
+      o.globalAlpha=1;
+    } else {
+      o.fillStyle=pal.water; o.fillRect(0,0,R*2,R*2);
+      const blobs=18+Math.floor(r()*14);
+      for(let i=0;i<blobs;i++){ const bx=r()*R*2,by=r()*R*2,br=6+r()*22;
+        o.fillStyle=r()>0.6?pal.high:pal.land; o.globalAlpha=0.55+r()*0.4;
+        o.beginPath(); o.arc(bx,by,br,0,6.28); o.fill();
+        o.beginPath(); o.arc(bx-R*2,by,br,0,6.28); o.fill();
+        o.beginPath(); o.arc(bx+R*2,by,br,0,6.28); o.fill(); }
+      o.globalAlpha=1;
+      if(p.type!=='volcanique'){ const g1=o.createLinearGradient(0,0,0,R*0.5);
+        g1.addColorStop(0,pal.polar); g1.addColorStop(1,'rgba(255,255,255,0)'); o.fillStyle=g1; o.fillRect(0,0,R*2,R*0.5);
+        const g2=o.createLinearGradient(0,R*1.5,0,R*2); g2.addColorStop(0,'rgba(255,255,255,0)'); g2.addColorStop(1,pal.polar);
+        o.fillStyle=g2; o.fillRect(0,R*1.5,R*2,R*0.5); }
+      if(p.type==='volcanique'){ for(let i=0;i<24;i++){
+        o.fillStyle='rgba(255,'+(100+r()*120|0)+',40,'+(0.4+r()*0.5).toFixed(2)+')';
+        o.beginPath(); o.arc(r()*R*2,r()*R*2,2+r()*4,0,6.28); o.fill(); } }
+    }
+    texCache[p.seed]={canvas:off,pal}; return texCache[p.seed];
+  }
+
+  function solveKepler(M,e){ let E=M; for(let i=0;i<4;i++){ E=E-(E-e*Math.sin(E)-M)/(1-e*Math.cos(E)); } return E; }
+  function planetLocal(p,t){
+    const M=p.angle+(2*Math.PI/p.period)*t; const E=solveKepler(M,p.e);
+    const a=p.a,b=a*Math.sqrt(1-p.e*p.e); return {x:a*(Math.cos(E)-p.e), y:b*Math.sin(E)};
+  }
+
+  function drawDetailedPlanet(p,sx,sy,scr,sunSx,sunSy,t,alpha){
+    const tex=getTex(p);
+    const ldx=sunSx-sx, ldy=sunSy-sy; const ld=Math.hypot(ldx,ldy)||1; const lx=ldx/ld, ly=ldy/ld;
+    ctx.save(); ctx.translate(sx,sy); ctx.globalAlpha=alpha;
+    const spin=(t*0.5/Math.max(40,p.period)*200)%(scr*2);
+    ctx.save(); ctx.beginPath(); ctx.arc(0,0,scr,0,6.28); ctx.clip();
+    ctx.drawImage(tex.canvas,-scr-spin,-scr,scr*2,scr*2);
+    ctx.drawImage(tex.canvas,-scr-spin+scr*2,-scr,scr*2,scr*2);
+    const sg=ctx.createRadialGradient(lx*scr*0.6,ly*scr*0.6,scr*0.1,0,0,scr*1.15);
+    sg.addColorStop(0,'rgba(255,250,235,0.25)'); sg.addColorStop(0.45,'rgba(0,0,0,0)');
+    sg.addColorStop(0.85,'rgba(0,0,8,0.55)'); sg.addColorStop(1,'rgba(0,0,10,0.92)');
+    ctx.fillStyle=sg; ctx.fillRect(-scr,-scr,scr*2,scr*2); ctx.restore();
+    if(tex.pal.atmo && scr>3){
+      const ag=ctx.createRadialGradient(0,0,scr*0.82,0,0,scr*1.25);
+      ag.addColorStop(0,'rgba('+tex.pal.atmo+',0)'); ag.addColorStop(0.7,'rgba('+tex.pal.atmo+',0.2)'); ag.addColorStop(1,'rgba('+tex.pal.atmo+',0)');
+      ctx.fillStyle=ag; ctx.beginPath(); ctx.arc(0,0,scr*1.25,0,6.28); ctx.fill();
+    }
+    if(p.ring && scr>4){ ctx.strokeStyle='rgba(220,200,160,'+(0.5*alpha)+')'; ctx.lineWidth=Math.max(1,scr*0.18);
+      ctx.beginPath(); ctx.ellipse(0,0,scr*1.8,scr*0.7,0.4,0,6.28); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  let t=0,last=performance.now(); let hoverSys=null, hoverPlanet=null;
+  const mouse={x:-999,y:-999,down:false,dragged:false,lx:0,ly:0};
+  const bgStars=Array.from({length:220},()=>({x:(Math.random()-0.5)*6000,y:(Math.random()-0.5)*6000,r:Math.random()*1.1+0.2}));
+  const LOD_APPROACH=0.9, LOD_SYSTEM=1.6, LOD_FULL=2.6;
+  function smooth(a,b,x){ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); }
+
+  canvas.addEventListener('wheel',(e)=>{
+    e.preventDefault();
+    const before=s2w(mouse.x,mouse.y); const f=e.deltaY<0?1.15:1/1.15;
+    cam.tzoom=Math.min(5,Math.max(0.28,cam.tzoom*f)); cam.zoom=cam.tzoom;
+    const after=s2w(mouse.x,mouse.y);
+    cam.tx+=before.x-after.x; cam.ty+=before.y-after.y; cam.x+=before.x-after.x; cam.y+=before.y-after.y;
+  },{passive:false});
+  canvas.addEventListener('mousedown',(e)=>{ mouse.down=true; mouse.dragged=false; mouse.lx=e.clientX; mouse.ly=e.clientY; canvas.style.cursor='grabbing'; });
+  window.addEventListener('mouseup',()=>{
+    if(mouse.down&&!mouse.dragged&&hoverSys){ cam.tx=hoverSys.x; cam.ty=hoverSys.y; cam.tzoom=3; }
+    mouse.down=false; canvas.style.cursor='grab';
+  });
+  canvas.addEventListener('mousemove',(e)=>{
+    mouse.x=e.clientX; mouse.y=e.clientY;
+    if(mouse.down){ const dx=e.clientX-mouse.lx, dy=e.clientY-mouse.ly;
+      if(Math.hypot(dx,dy)>3) mouse.dragged=true;
+      cam.x-=dx/cam.zoom; cam.y-=dy/cam.zoom; cam.tx=cam.x; cam.ty=cam.y;
+      mouse.lx=e.clientX; mouse.ly=e.clientY; }
+  });
+  canvas.addEventListener('mouseleave',()=>{ mouse.x=-999; mouse.y=-999; });
+  let pinchD=0;
+  canvas.addEventListener('touchstart',(e)=>{
+    if(e.touches.length===1){ mouse.down=true; mouse.dragged=false; mouse.lx=e.touches[0].clientX; mouse.ly=e.touches[0].clientY; mouse.x=e.touches[0].clientX; mouse.y=e.touches[0].clientY; }
+    else if(e.touches.length===2){ pinchD=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); }
+  },{passive:false});
+  canvas.addEventListener('touchmove',(e)=>{
+    e.preventDefault();
+    if(e.touches.length===1&&mouse.down){ const dx=e.touches[0].clientX-mouse.lx,dy=e.touches[0].clientY-mouse.ly;
+      cam.x-=dx/cam.zoom; cam.y-=dy/cam.zoom; cam.tx=cam.x; cam.ty=cam.y;
+      mouse.lx=e.touches[0].clientX; mouse.ly=e.touches[0].clientY; }
+    else if(e.touches.length===2){ const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+      if(pinchD){ cam.tzoom=Math.min(5,Math.max(0.28,cam.tzoom*(d/pinchD))); cam.zoom=cam.tzoom; } pinchD=d; }
+  },{passive:false});
+  canvas.addEventListener('touchend',()=>{ mouse.down=false; pinchD=0; });
+
+  function draw(){
+    const now=performance.now(); const dt=(now-last)/1000; last=now; t+=dt*45;
+    cam.x+=(cam.tx-cam.x)*Math.min(1,dt*9); cam.y+=(cam.ty-cam.y)*Math.min(1,dt*9); cam.zoom+=(cam.tzoom-cam.zoom)*Math.min(1,dt*9);
+    ctx.clearRect(0,0,W,H);
+    for(const s of bgStars){
+      const px=(s.x-cam.x*0.25)*0.4+W/2, py=(s.y-cam.y*0.25)*0.4+H/2;
+      if(px<-5||px>W+5||py<-5||py>H+5) continue;
+      ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.arc(px,py,s.r,0,6.28); ctx.fill();
+    }
+    const fSystem=smooth(LOD_SYSTEM,LOD_FULL,cam.zoom);
+    const fApproach=smooth(LOD_APPROACH,LOD_SYSTEM,cam.zoom);
+    const fPlanetName=smooth(LOD_FULL-0.3, LOD_FULL+0.6, cam.zoom);
+    hoverSys=null; hoverPlanet=null; ctx.textAlign='center';
+
+    for(const sys of SYSTEMS){
+      const sp=w2s(sys.x,sys.y); const margin=200;
+      if(sp.x<-margin||sp.x>W+margin||sp.y<-margin||sp.y>H+margin) continue;
+      if(fSystem>0.01){
+        for(const p of sys.planets){
+          const loc=planetLocal(p,t); const px=sp.x+loc.x*cam.zoom, py=sp.y+loc.y*cam.zoom; const scr=p.size*cam.zoom*0.5;
+          if(fSystem>0.2){ const a=p.a*cam.zoom,b=a*Math.sqrt(1-p.e*p.e);
+            ctx.beginPath(); ctx.ellipse(sp.x,sp.y,a,b,0,0,6.28);
+            ctx.strokeStyle='rgba(150,170,220,'+(0.12*fSystem).toFixed(2)+')'; ctx.lineWidth=1; ctx.stroke(); }
+          if(scr>1.2) drawDetailedPlanet(p,px,py,scr,sp.x,sp.y,t,fSystem);
+          else { ctx.globalAlpha=fSystem; ctx.fillStyle=PALETTES[p.type]?.water||'#888';
+            ctx.beginPath(); ctx.arc(px,py,Math.max(1,scr),0,6.28); ctx.fill(); ctx.globalAlpha=1; }
+          if(!mouse.dragged && fSystem>0.5 && Math.hypot(mouse.x-px,mouse.y-py)<Math.max(7,scr+5)) hoverPlanet={p,px,py,scr};
+          if((fPlanetName>0.05 && scr>2) || (hoverPlanet&&hoverPlanet.p===p)){
+            const a=Math.max(fPlanetName, (hoverPlanet&&hoverPlanet.p===p)?1:0);
+            ctx.fillStyle='rgba(210,225,255,'+(0.85*a).toFixed(2)+')'; ctx.font='11px sans-serif';
+            ctx.fillText(p.name, px, py-scr-5);
+          }
+        }
+      }
+      const baseR=sys.starR*(1.5+cam.zoom*0.8); const starR=baseR*(1+fApproach*2.5); const haloR=starR*(2.5+fSystem*2);
+      const hg=ctx.createRadialGradient(sp.x,sp.y,starR*0.2,sp.x,sp.y,haloR);
+      hg.addColorStop(0,sys.starColor); hg.addColorStop(0.35,'rgba(255,200,120,0.35)'); hg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(sp.x,sp.y,haloR,0,6.28); ctx.fill();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(sp.x,sp.y,Math.max(1,starR*0.5),0,6.28); ctx.fill();
+      if(!mouse.dragged && !hoverPlanet){ const hitR=Math.max(14,haloR*0.5); if(Math.hypot(mouse.x-sp.x,mouse.y-sp.y)<hitR) hoverSys=sys; }
+      if(fApproach>0.05 || hoverSys===sys){
+        const a=Math.max(fApproach, hoverSys===sys?1:0); const yoff=haloR+4+fSystem*8;
+        ctx.fillStyle='rgba(255,255,255,'+(0.72*a).toFixed(2)+')'; ctx.font=(hoverSys===sys?'bold ':'')+'13px sans-serif';
+        ctx.fillText(sys.name, sp.x, sp.y-yoff);
+      }
+    }
+    if(hoverSys){ const sp=w2s(hoverSys.x,hoverSys.y);
+      ctx.strokeStyle='rgba(120,180,255,0.7)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(sp.x,sp.y,Math.max(16,hoverSys.starR*(1.5+cam.zoom*0.8)*3),0,6.28); ctx.stroke();
+      canvas.style.cursor=mouse.down?'grabbing':'pointer';
+    } else if(!mouse.down){ canvas.style.cursor='grab'; }
+    if(hoverPlanet){ ctx.strokeStyle='rgba(120,180,255,0.6)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.arc(hoverPlanet.px,hoverPlanet.py,hoverPlanet.scr+6,0,6.28); ctx.stroke(); canvas.style.cursor='pointer'; }
+
+    if(cam.zoom>=LOD_SYSTEM){ let near=null,nd=1e9;
+      for(const s of SYSTEMS){ const d=Math.hypot(s.x-cam.x,s.y-cam.y); if(d<nd){nd=d;near=s;} }
+      scaleBadge.textContent='Système '+(near?near.name:'');
+    } else if(cam.zoom>=LOD_APPROACH){ scaleBadge.textContent='Approche'; } else { scaleBadge.textContent='Galaxie'; }
+
+    if(hoverPlanet){ const p=hoverPlanet.p; info.style.opacity='1';
+      info.innerHTML='<strong>'+p.name+'</strong> · '+(PALETTES[p.type]?.label||'')+' · orbite '+Math.round(p.a)+' u'+(p.moons?' · '+p.moons+' lune':'')+(p.ring?' · anneaux':'');
+    } else if(hoverSys){ info.style.opacity='1';
+      info.innerHTML='<strong>'+hoverSys.name+'</strong> · '+hoverSys.planets.length+' planètes — clique pour explorer';
+    } else { info.style.opacity='0'; }
+
+    requestAnimationFrame(draw);
+  }
+  resize();
+  requestAnimationFrame(draw);
+}
+</script>
+</body>
+</html>
