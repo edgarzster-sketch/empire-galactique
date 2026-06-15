@@ -38,9 +38,12 @@ async function preparerBase() {
       addr TEXT PRIMARY KEY,
       joueur TEXT NOT NULL,
       origine BOOLEAN DEFAULT FALSE,
+      nom_perso TEXT,
       acquis_le TIMESTAMP DEFAULT NOW()
     )
   `);
+  // migration douce : ajoute la colonne si la table existait deja sans elle
+  await pool.query(`ALTER TABLE possessions ADD COLUMN IF NOT EXISTS nom_perso TEXT`);
   console.log("Base prete : tables 'joueurs' et 'possessions' OK");
 }
 
@@ -105,8 +108,30 @@ app.get("/api/joueurs", async (req, res) => {
 // ============================================================
 app.get("/api/possessions", async (req, res) => {
   try {
-    const r = await pool.query("SELECT addr, joueur, origine FROM possessions");
+    const r = await pool.query("SELECT addr, joueur, origine, nom_perso FROM possessions");
     res.json({ nombre: r.rows.length, possessions: r.rows });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// ============================================================
+//  RENOMMER : un joueur donne un nom personnalise a SA planete
+// ============================================================
+app.post("/api/renommer", async (req, res) => {
+  const pseudo = (req.body.pseudo || "").trim().slice(0,20);
+  const addr = (req.body.addr || "").trim();
+  let nom = (req.body.nom || "").trim().slice(0, 40);
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Joueur invalide" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  try {
+    // on ne renomme QUE si la planete appartient bien au joueur
+    const r = await pool.query(
+      "UPDATE possessions SET nom_perso=$1 WHERE addr=$2 AND joueur=$3 RETURNING addr",
+      [nom || null, addr, pseudo]
+    );
+    if (r.rows.length === 0) {
+      return res.json({ succes:false, message:"Cette planète ne vous appartient pas." });
+    }
+    res.json({ succes:true, addr, nom });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
@@ -149,7 +174,7 @@ app.post("/api/coloniser", async (req, res) => {
   }
 });
 
-app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.4" }));
+app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.5" }));
 
 preparerBase()
   .then(() => app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`)))

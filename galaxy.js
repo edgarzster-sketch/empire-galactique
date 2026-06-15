@@ -138,3 +138,21 @@ module.exports = {
   GRAINE_UNIVERS, NB_SYSTEMS,
   genAllSystems, genPlanets, parseAddr, homeworldFor
 };
+
+// --- Nom scientifique deterministe d'une planete ---
+// Format type catalogue stellaire : "HD-<sysIdx>-<lettre>" + suffixe de classe
+// ex: S131-P2 (tellurique) -> "HD-131 c" / Kepler-style
+function nomScientifique(addr){
+  const info = parseAddr(addr);
+  if(!info) return addr;
+  const lettres = 'bcdefghij'; // l'etoile = a, planetes = b,c,d...
+  const lettre = lettres[info.pIdx] || ('p'+info.pIdx);
+  // prefixe de catalogue derive du systeme (deterministe)
+  const prefixes = ['HD','GJ','HIP','TYC','Kepler','TOI','WASP','K'];
+  const r = rng(info.system.seed + 99);
+  const prefixe = prefixes[Math.floor(r()*prefixes.length)];
+  const num = 1000 + (info.sysIdx % 9000);
+  return prefixe + '-' + num + ' ' + lettre;
+}
+
+module.exports.nomScientifique = nomScientifique;
