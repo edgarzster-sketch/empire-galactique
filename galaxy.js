@@ -156,3 +156,82 @@ function nomScientifique(addr){
 }
 
 module.exports.nomScientifique = nomScientifique;
+
+// ============================================================
+//  ECONOMIE — taux de production par ressource (partage client/serveur)
+//  Production horaire d'une ressource sur une planete =
+//     densite (1..10) * tauxBase. Rythme 4X (lent, a l'heure).
+// ============================================================
+// taux de base PAR HEURE par point de densite, selon la rarete
+const RES_TAUX = {
+  // communs (tier 0) : production rapide
+  fer:6, silicates:6, aluminium:5, carbone:5, eau:6, biomasse:5, hydrogene:6, solaire:6,
+  // industriels (tier 1) : moyen
+  cuivre:3, nickel:3, zinc:3, plomb:2.5, etain:2.5, soufre:3, methane:3,
+  // strategiques (tier 2)
+  titane:1.5, cobalt:1.2, lithium:1.5, cristaux:1.2, helium3:1.5,
+  // precieux (tier 3) : lent
+  argent:0.5, uranium:0.5, thorium:0.4, terres_rares:0.5, gaz_exo:0.5,
+  // tres precieux (tier 4) : tres lent (valeur d'echange)
+  or:0.2, platine:0.18, palladium:0.18, cristaux_exo:0.12,
+  // exotiques (tier 5) : extremement lent (tresors)
+  antimatiere:0.04, metamateriaux:0.04
+};
+
+// Reproduit la generation des ressources d'une planete (densites)
+// IDENTIQUE au client. Necessaire pour calculer la production cote serveur.
+const RES_TIER = {
+  fer:0,silicates:0,aluminium:0,carbone:0,eau:0,biomasse:0,hydrogene:0,solaire:0,
+  cuivre:1,nickel:1,zinc:1,plomb:1,etain:1,soufre:1,methane:1,
+  titane:2,cobalt:2,lithium:2,cristaux:2,helium3:2,
+  argent:3,uranium:3,thorium:3,terres_rares:3,gaz_exo:3,
+  or:4,platine:4,palladium:4,cristaux_exo:4,
+  antimatiere:5,metamateriaux:5
+};
+const PROFILS = {
+  rocheuse:[['fer',8,1],['silicates',7,1],['aluminium',6,0.9],['cuivre',5,0.8],['nickel',5,0.7],['titane',4,0.45],['cobalt',3,0.3],['argent',3,0.12],['platine',5,0.04],['or',4,0.03]],
+  tellurique:[['eau',8,1],['biomasse',8,0.95],['silicates',6,1],['fer',5,0.9],['carbone',6,0.8],['cuivre',4,0.5],['lithium',3,0.25],['argent',2,0.08],['or',3,0.02]],
+  ocean:[['eau',9,1],['biomasse',9,1],['carbone',6,0.8],['silicates',4,0.7],['fer',3,0.6],['cristaux',3,0.3],['terres_rares',3,0.06]],
+  desert:[['silicates',7,1],['solaire',9,1],['fer',6,0.9],['aluminium',6,0.8],['lithium',6,0.5],['terres_rares',5,0.3],['titane',4,0.3],['or',4,0.04],['platine',4,0.03]],
+  volcanique:[['fer',7,1],['soufre',9,1],['nickel',6,0.9],['cuivre',6,0.8],['cobalt',6,0.6],['titane',5,0.5],['uranium',5,0.35],['thorium',4,0.25],['platine',7,0.10],['palladium',6,0.08],['or',7,0.08],['argent',5,0.2]],
+  glace:[['eau',9,1],['methane',5,0.6],['cristaux',4,0.5],['silicates',3,0.5],['helium3',4,0.3],['terres_rares',3,0.05]],
+  naine:[['silicates',6,0.9],['fer',5,0.8],['eau',3,0.5],['nickel',4,0.4],['uranium',3,0.15],['platine',4,0.03]],
+  gazeuse:[['hydrogene',9,1],['helium3',6,0.9],['methane',5,0.6],['gaz_exo',4,0.35],['antimatiere',6,0.01]],
+  geante_glace:[['helium3',8,1],['eau',6,0.9],['methane',7,0.85],['hydrogene',5,0.6],['cristaux_exo',5,0.03]]
+};
+
+// Calcule les ressources (densites) d'une planete a partir de son adresse.
+// Doit consommer le RNG dans le MEME ordre que le client (rng(seed+7777)).
+function resourcesOf(addr){
+  const info = parseAddr(addr);
+  if(!info) return null;
+  const p = info.planet;
+  const seedPlanet = info.system.seed*10 + info.pIdx;   // = p.seed cote client
+  const prof = PROFILS[p.type] || [];
+  const r = rng(seedPlanet + 7777);
+  const out = [];
+  for(const [key,base,prob] of prof){
+    if(r() <= prob){
+      let d = base + Math.round((r()+r()+r()-1.5)*2.4);
+      d = Math.max(1, Math.min(10, d));
+      out.push({ key, d, tier: RES_TIER[key] });
+    }
+  }
+  return out;
+}
+
+// Production horaire d'une planete : { ressource: qte/heure }
+function productionHoraire(addr){
+  const res = resourcesOf(addr);
+  if(!res) return {};
+  const prod = {};
+  for(const rr of res){
+    const taux = RES_TAUX[rr.key] || 0;
+    prod[rr.key] = +(rr.d * taux).toFixed(2);
+  }
+  return prod;
+}
+
+module.exports.RES_TAUX = RES_TAUX;
+module.exports.resourcesOf = resourcesOf;
+module.exports.productionHoraire = productionHoraire;

@@ -44,6 +44,17 @@ async function preparerBase() {
   `);
   // migration douce : ajoute la colonne si la table existait deja sans elle
   await pool.query(`ALTER TABLE possessions ADD COLUMN IF NOT EXISTS nom_perso TEXT`);
+  // recolte_le : derniere fois que la production de cette planete a ete encaissee
+  await pool.query(`ALTER TABLE possessions ADD COLUMN IF NOT EXISTS recolte_le TIMESTAMP DEFAULT NOW()`);
+  // stocks : ressources accumulees par joueur (une ligne par joueur+ressource)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS stocks (
+      joueur TEXT NOT NULL,
+      ressource TEXT NOT NULL,
+      quantite DOUBLE PRECISION DEFAULT 0,
+      PRIMARY KEY (joueur, ressource)
+    )
+  `);
   console.log("Base prete : tables 'joueurs' et 'possessions' OK");
 }
 
@@ -174,7 +185,80 @@ app.post("/api/coloniser", async (req, res) => {
   }
 });
 
-app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.5" }));
+// ============================================================
+//  ECONOMIE : encaisse la production de toutes les planetes d'un
+//  joueur depuis leur derniere recolte, puis renvoie son stock.
+//  Calcul "a la demande" : aucune boucle permanente cote serveur.
+// ============================================================
+async function encaisserEtLireStock(pseudo) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // 1) recupere les planetes du joueur avec leur derniere recolte
+    const planetes = await client.query(
+      "SELECT addr, recolte_le FROM possessions WHERE joueur=$1 FOR UPDATE",
+      [pseudo]
+    );
+    const now = Date.now();
+    const gains = {};   // ressource -> quantite gagnee
+    for (const row of planetes.rows) {
+      const prod = galaxy.productionHoraire(row.addr);   // {res: qte/heure}
+      const dernier = new Date(row.recolte_le).getTime();
+      const heures = Math.max(0, (now - dernier) / 3600000);
+      if (heures <= 0) continue;
+      for (const res in prod) {
+        gains[res] = (gains[res] || 0) + prod[res] * heures;
+      }
+    }
+    // 2) met a jour la date de recolte de toutes les planetes
+    if (planetes.rows.length > 0) {
+      await client.query(
+        "UPDATE possessions SET recolte_le=NOW() WHERE joueur=$1", [pseudo]
+      );
+    }
+    // 3) credite le stock
+    for (const res in gains) {
+      if (gains[res] <= 0) continue;
+      await client.query(
+        `INSERT INTO stocks (joueur, ressource, quantite) VALUES ($1,$2,$3)
+         ON CONFLICT (joueur, ressource) DO UPDATE SET quantite = stocks.quantite + $3`,
+        [pseudo, res, gains[res]]
+      );
+    }
+    await client.query("COMMIT");
+  } catch (e) {
+    await client.query("ROLLBACK").catch(()=>{});
+    throw e;
+  } finally {
+    client.release();
+  }
+  // 4) relit le stock complet + production horaire totale
+  const stock = await pool.query(
+    "SELECT ressource, quantite FROM stocks WHERE joueur=$1", [pseudo]
+  );
+  const planetes = await pool.query(
+    "SELECT addr FROM possessions WHERE joueur=$1", [pseudo]
+  );
+  const prodTotale = {};
+  for (const row of planetes.rows) {
+    const prod = galaxy.productionHoraire(row.addr);
+    for (const res in prod) prodTotale[res] = (prodTotale[res]||0) + prod[res];
+  }
+  const stockObj = {};
+  for (const row of stock.rows) stockObj[row.ressource] = row.quantite;
+  return { stock: stockObj, productionHoraire: prodTotale };
+}
+
+app.get("/api/stock", async (req, res) => {
+  const pseudo = (req.query.pseudo || "").trim().slice(0,20);
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Joueur invalide" });
+  try {
+    const data = await encaisserEtLireStock(pseudo);
+    res.json(data);
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.6" }));
 
 preparerBase()
   .then(() => app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`)))
