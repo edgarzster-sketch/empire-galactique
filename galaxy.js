@@ -56,7 +56,16 @@ function genAllSystems(){
   return systems;
 }
 
+// --- Tailles par type (necessaire pour consommer le RNG comme le client) ---
+const PTYPE_SIZE = {
+  rocheuse:[3,6], tellurique:[4,7], ocean:[4,7], desert:[3,6], volcanique:[3,6],
+  glace:[3,6], naine:[2,3], gazeuse:[11,17], geante_glace:[9,13]
+};
+const PTYPE_GAS = { gazeuse:true, geante_glace:true };
+
 // --- Planetes d'un systeme (generation paresseuse, deterministe) ---
+//  CET ORDRE DE CONSOMMATION DU RNG DOIT ETRE IDENTIQUE AU CLIENT (index.html).
+//  Sinon les adresses ne designent pas les memes planetes => triche/bugs.
 const _planetCache = {};
 function genPlanets(sysIdx){
   if(_planetCache[sysIdx]) return _planetCache[sysIdx];
@@ -66,16 +75,18 @@ function genPlanets(sysIdx){
   const pc = 3 + Math.floor(pr()*5);
   const planets = [];
   for(let j=0;j<pc;j++){
-    const type = PTYPE_POOL[Math.floor(pr()*PTYPE_POOL.length)];
-    // on consomme le RNG dans le MEME ordre que le client pour rester synchro
-    const a = 46 + j*48 + pr()*16;
-    const e = pr()*0.08;
-    const period = 90 + j*150 + pr()*220;
-    pr(); // size (consomme)
-    pr(); // angle (consomme)
-    pr(); // ring (consomme)
-    pr(); // moons (consomme)
-    pr(); // spinSpeed (consomme)
+    const type = PTYPE_POOL[Math.floor(pr()*PTYPE_POOL.length)];   // type
+    const useProper = pr() > 0.65;                                  // test nom
+    if(useProper) pr();                                             // nom propre (conditionnel)
+    pr();          // a
+    pr();          // size
+    pr();          // e
+    pr();          // period
+    pr();          // angle
+    const gas = !!PTYPE_GAS[type];
+    if(gas) pr();  // ring : le client n'appelle pr() QUE si gazeuse (court-circuit &&)
+    pr();          // moons (1 tirage dans les deux cas)
+    pr();          // spinSpeed
     planets.push({ idx:j, addr:sys.addr+'-P'+j, type, sysIdx });
   }
   _planetCache[sysIdx] = planets;
