@@ -20,6 +20,11 @@
   #msg{margin-top:14px;font-size:13px;min-height:18px;color:#ff9b7a;}
   #hud{position:fixed;top:10px;left:10px;z-index:5;font-size:12px;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.5);padding:8px 12px;border-radius:8px;pointer-events:none;display:flex;align-items:center;gap:8px;}
   #hud .pastille{width:11px;height:11px;border-radius:50%;display:inline-block;}
+  #bandeau-stock{position:fixed;top:44px;left:10px;z-index:5;background:rgba(0,0,0,0.55);border-radius:8px;padding:6px 10px;display:flex;flex-wrap:wrap;gap:12px;max-width:62vw;pointer-events:none;}
+  #bandeau-stock .res-item{display:flex;align-items:center;gap:5px;font-size:12px;color:#dfe6f5;}
+  #bandeau-stock .res-item i{font-size:14px;}
+  #bandeau-stock .res-prod{font-size:9.5px;color:#7a9a7a;margin-left:2px;}
+  #bandeau-stock .res-empty{font-size:11.5px;color:#5b6b8a;}
   #scale-badge{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:5;font-size:12px;color:rgba(255,255,255,0.7);background:rgba(0,0,0,0.45);padding:4px 10px;border-radius:6px;pointer-events:none;}
   #perf-badge{position:fixed;top:10px;right:10px;z-index:5;font-size:11px;color:rgba(255,255,255,0.5);background:rgba(0,0,0,0.45);padding:4px 9px;border-radius:6px;pointer-events:none;}
   #joueurs-panel{position:fixed;top:44px;right:10px;z-index:5;font-size:12px;color:rgba(255,255,255,0.8);background:rgba(0,0,0,0.5);padding:8px 12px;border-radius:8px;max-width:180px;}
@@ -67,6 +72,7 @@
 <div id="jeu" style="display:none">
   <canvas id="sky"></canvas>
   <div id="hud"><span class="pastille" id="hud-col"></span>Commandant <strong id="moncom">—</strong></div>
+  <div id="bandeau-stock"></div>
   <div id="scale-badge">Galaxie</div>
   <div id="perf-badge"></div>
   <div id="joueurs-panel"><h4>Commandants</h4><div id="liste-joueurs">—</div></div>
@@ -77,7 +83,7 @@
     <h3>Mes planètes <span class="pp-close2" id="panel-close"><i class="ti ti-x"></i></span></h3>
     <div id="liste-mes-planetes"></div>
   </div>
-  <div id="version"><span id="ver">v1.4</span> · noms scientifiques + renommage + panneau Mes planètes</div>
+  <div id="version"><span id="ver">v1.5</span> · économie : production de ressources dans le temps + stock</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -138,10 +144,14 @@ async function entrer(){
     document.getElementById('hud-col').style.background=MA_COULEUR;
     elConnexion.style.display='none'; elJeu.style.display='block';
     await chargerPossessions();
+    await chargerStock();
     demarrerJeu();
     goHomeRequested=true; // la galaxie ira sur le home au 1er rendu
     rafraichirJoueurs(); setInterval(rafraichirJoueurs,5000);
     setInterval(chargerPossessions,4000); // polling colonisations
+    setInterval(chargerStock,15000);      // resync stock serveur toutes les 15s
+    setInterval(majBandeauStock,1000);    // interpolation visuelle chaque seconde
+    majBandeauStock();
   }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Serveur injoignable. Réessaie."; }
 }
 async function chargerPossessions(){
@@ -180,6 +190,52 @@ function nomScientifique(addr){
   let s=(100000+sysIdx+99)>>>0; s=(s*1664525+1013904223)>>>0; const prefixe=prefixes[Math.floor((s/4294967296)*prefixes.length)];
   const num=1000+(sysIdx%9000);
   return prefixe+'-'+num+' '+lettre;
+}
+
+// ---- ECONOMIE cote client : stock + interpolation visuelle ----
+const RES_META={
+  fer:{label:'Fer',icon:'ti-pick',col:'#9a8a78',tier:0},silicates:{label:'Silicates',icon:'ti-mountain',col:'#a0998c',tier:0},
+  aluminium:{label:'Alu',icon:'ti-pick',col:'#c0b8b0',tier:0},carbone:{label:'Carbone',icon:'ti-leaf',col:'#7a8a6a',tier:0},
+  eau:{label:'Eau',icon:'ti-droplet',col:'#5b9bd5',tier:0},biomasse:{label:'Biomasse',icon:'ti-leaf',col:'#7ac74f',tier:0},
+  hydrogene:{label:'H₂',icon:'ti-air-balloon',col:'#9bb8ff',tier:0},solaire:{label:'Énergie',icon:'ti-sun',col:'#ffc040',tier:0},
+  cuivre:{label:'Cuivre',icon:'ti-ingot',col:'#c8845a',tier:1},nickel:{label:'Nickel',icon:'ti-ingot',col:'#b8b8c0',tier:1},
+  zinc:{label:'Zinc',icon:'ti-ingot',col:'#8a8a92',tier:1},plomb:{label:'Plomb',icon:'ti-ingot',col:'#6a6a72',tier:1},
+  etain:{label:'Étain',icon:'ti-ingot',col:'#d8d0c0',tier:1},soufre:{label:'Soufre',icon:'ti-flame',col:'#e0a040',tier:1},
+  methane:{label:'Méthane',icon:'ti-cloud',col:'#a0b0d0',tier:1},
+  titane:{label:'Titane',icon:'ti-ingot',col:'#c0c0c8',tier:2},cobalt:{label:'Cobalt',icon:'ti-flask',col:'#4a6bd5',tier:2},
+  lithium:{label:'Lithium',icon:'ti-battery',col:'#e0d090',tier:2},cristaux:{label:'Cristaux',icon:'ti-diamond',col:'#6bb8e0',tier:2},
+  helium3:{label:'He-3',icon:'ti-flask',col:'#e06baa',tier:2},
+  argent:{label:'Argent',icon:'ti-coin',col:'#e8e0e8',tier:3},uranium:{label:'Uranium',icon:'ti-radioactive',col:'#9bd54f',tier:3},
+  thorium:{label:'Thorium',icon:'ti-radioactive',col:'#7ab84f',tier:3},terres_rares:{label:'T. rares',icon:'ti-stars',col:'#a0c8e8',tier:3},
+  gaz_exo:{label:'Gaz exo',icon:'ti-cloud-fog',col:'#d8a878',tier:3},
+  or:{label:'Or',icon:'ti-coin',col:'#ffd84a',tier:4},platine:{label:'Platine',icon:'ti-coin',col:'#dfe8f0',tier:4},
+  palladium:{label:'Palladium',icon:'ti-coin',col:'#c8d0d8',tier:4},cristaux_exo:{label:'Cristaux exo',icon:'ti-diamond',col:'#b088e0',tier:4},
+  antimatiere:{label:'Antimatière',icon:'ti-atom',col:'#b088e0',tier:5},metamateriaux:{label:'Métamat.',icon:'ti-sparkles',col:'#88e0d0',tier:5}
+};
+let STOCK={};        // ressource -> quantite (au dernier appel serveur)
+let PROD_H={};       // ressource -> production/heure
+let stockTimestamp=0; // quand on a recu le stock
+async function chargerStock(){
+  if(!MON_PSEUDO) return;
+  try{ const r=await fetch('/api/stock?pseudo='+encodeURIComponent(MON_PSEUDO)); const d=await r.json();
+    STOCK=d.stock||{}; PROD_H=d.productionHoraire||{}; stockTimestamp=Date.now();
+  }catch(e){}
+}
+function majBandeauStock(){
+  const el=document.getElementById('bandeau-stock'); if(!el) return;
+  const keys=Object.keys(STOCK).filter(k=>STOCK[k]>0 || PROD_H[k]>0);
+  if(keys.length===0){ el.innerHTML='<span class="res-empty">Aucune ressource — colonise une planète pour produire</span>'; return; }
+  // tri par rareté décroissante puis quantité
+  keys.sort((a,b)=>(RES_META[b]?.tier||0)-(RES_META[a]?.tier||0) || STOCK[b]-STOCK[a]);
+  // interpolation : quantité affichée = stock + prod * temps écoulé
+  const ecoule=(Date.now()-stockTimestamp)/3600000; // en heures
+  let html='';
+  for(const k of keys.slice(0,12)){ const m=RES_META[k]; if(!m) continue;
+    const qte=(STOCK[k]||0)+(PROD_H[k]||0)*ecoule;
+    const prodTxt=PROD_H[k]?'<span class="res-prod">+'+(PROD_H[k]).toFixed(PROD_H[k]<1?2:0)+'/h</span>':'';
+    html+='<div class="res-item"><i class="'+m.icon+'" style="color:'+m.col+'"></i>'+Math.floor(qte).toLocaleString('fr-FR')+prodTxt+'</div>';
+  }
+  el.innerHTML=html;
 }
 // ============================================================
 //  MOTEUR DE GALAXIE (identique a la generation serveur galaxy.js)
@@ -389,11 +445,21 @@ function demarrerJeu(){
     let html=''; if(!p.resources.length) html='<div style="color:#5b6b8a;font-size:12px;">Aucune ressource notable</div>';
     for(const rr of p.resources){ const def=RES[rr.key]; html+='<div style="padding:5px 0;border-bottom:0.5px solid rgba(255,255,255,0.05);"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;"><span style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#dfe6f5;"><i class="'+def.icon+'" style="color:'+def.col+';font-size:15px;"></i>'+def.label+'</span><span style="font-size:10px;color:'+TIER_COL[rr.tier]+';font-weight:500;">'+rr.d+'/10</span></div><div style="line-height:0;">'+densBar(rr.d,rr.tier)+'</div></div>'; }
     document.getElementById('pp-res').innerHTML=html;
+    // production horaire si c'est MA planète
+    if(owner && owner.joueur===MON_PSEUDO){
+      let prodHtml='<div style="margin-top:8px;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin-bottom:4px;">Production / heure</div>';
+      for(const rr of p.resources){ const m=RES_META[rr.key]; if(!m) continue;
+        const taux={fer:6,silicates:6,aluminium:5,carbone:5,eau:6,biomasse:5,hydrogene:6,solaire:6,cuivre:3,nickel:3,zinc:3,plomb:2.5,etain:2.5,soufre:3,methane:3,titane:1.5,cobalt:1.2,lithium:1.5,cristaux:1.2,helium3:1.5,argent:0.5,uranium:0.5,thorium:0.4,terres_rares:0.5,gaz_exo:0.5,or:0.2,platine:0.18,palladium:0.18,cristaux_exo:0.12,antimatiere:0.04,metamateriaux:0.04}[rr.key]||0;
+        const ph=(rr.d*taux);
+        prodHtml+='<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:1px 0;"><span style="color:#bfc8d8;"><i class="'+m.icon+'" style="color:'+m.col+';font-size:13px;"></i> '+RES[rr.key].label+'</span><span style="color:#7ac79a;">+'+ph.toFixed(ph<1?2:0)+'/h</span></div>';
+      }
+      document.getElementById('pp-res').innerHTML=html+prodHtml;
+    }
     document.getElementById('pp-rename').style.display='none';
     const act=document.getElementById('pp-action');
     if(!owner){ act.innerHTML='<button class="btn-colo" id="do-colo"><i class="ti ti-flag"></i> Coloniser</button>';
       document.getElementById('do-colo').onclick=async()=>{ act.innerHTML='<button class="btn-colo" disabled>Colonisation...</button>';
-        const res=await coloniser(p.addr); if(res.ok){ montrerPopup(p); majPanneauPlanetes(); } else { act.innerHTML='<button class="btn-taken">'+res.msg+'</button>'; setTimeout(()=>montrerPopup(p),1500); } };
+        const res=await coloniser(p.addr); if(res.ok){ chargerStock(); montrerPopup(p); majPanneauPlanetes(); } else { act.innerHTML='<button class="btn-taken">'+res.msg+'</button>'; setTimeout(()=>montrerPopup(p),1500); } };
     } else if(owner.joueur===MON_PSEUDO){
       act.innerHTML='<button class="btn-mine" id="do-rename"><i class="ti ti-pencil"></i> Renommer</button>';
       document.getElementById('do-rename').onclick=()=>{
