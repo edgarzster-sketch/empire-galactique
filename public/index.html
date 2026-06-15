@@ -30,6 +30,23 @@
   #version{position:fixed;bottom:8px;left:12px;z-index:5;font-size:10px;color:rgba(255,255,255,0.4);pointer-events:none;line-height:1.4;}
   #version span{color:rgba(255,255,255,0.6);font-weight:500;}
   #btn-home{position:fixed;bottom:42px;right:10px;z-index:5;font-size:12px;color:#9bd5d0;background:rgba(10,20,35,0.8);border:1px solid #2a4a5a;padding:7px 12px;border-radius:8px;cursor:pointer;}
+  #btn-planetes{position:fixed;bottom:42px;right:118px;z-index:6;font-size:12px;color:#9bb8ff;background:rgba(10,20,35,0.8);border:1px solid #2a3a5a;padding:7px 12px;border-radius:8px;cursor:pointer;}
+  #panel-planetes{position:fixed;left:10px;top:44px;bottom:60px;width:220px;z-index:7;background:rgba(8,12,24,0.96);border:1px solid #2a3a5a;border-radius:12px;padding:10px;display:none;flex-direction:column;}
+  #panel-planetes h3{font-size:12px;color:#9bb8ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+  #panel-planetes .pp-close2{cursor:pointer;color:#8a97b5;}
+  #liste-mes-planetes{overflow-y:auto;flex:1;}
+  .mp-item{padding:8px 9px;border-radius:8px;margin-bottom:5px;cursor:pointer;border:1px solid transparent;background:rgba(255,255,255,0.03);}
+  .mp-item:hover{background:rgba(155,184,255,0.08);}
+  .mp-item.sel{border-color:#9bb8ff;background:rgba(155,184,255,0.12);}
+  .mp-nom{font-size:13px;color:#fff;font-weight:500;display:flex;align-items:center;gap:6px;}
+  .mp-sci{font-size:10.5px;color:#7a8aa5;font-style:italic;margin-top:1px;}
+  .mp-type{font-size:10px;color:#5b6b8a;margin-top:2px;}
+  .mp-empty{font-size:12px;color:#5b6b8a;text-align:center;padding:20px 5px;}
+  #pp-rename{margin-top:8px;display:none;}
+  #pp-rename input{width:100%;padding:7px 9px;border-radius:7px;border:1px solid #2a3a5a;background:#0a1020;color:#fff;font-size:13px;outline:none;}
+  #pp-rename input:focus{border-color:#9bb8ff;}
+  #pp-rename .rrow{display:flex;gap:5px;margin-top:5px;}
+  #pp-rename button{flex:1;padding:6px;border-radius:7px;border:none;font-size:12px;cursor:pointer;}
   #popup{position:fixed;top:44px;right:200px;width:250px;max-height:calc(100% - 60px);overflow-y:auto;background:rgba(10,14,28,0.97);border:1px solid #2a3a5a;border-radius:12px;padding:14px;box-shadow:0 8px 30px rgba(0,0,0,0.5);z-index:8;display:none;}
   #popup .ppclose{cursor:pointer;color:#8a97b5;font-size:16px;padding:2px;}
   #pp-action{margin-top:10px;}
@@ -55,7 +72,12 @@
   <div id="joueurs-panel"><h4>Commandants</h4><div id="liste-joueurs">—</div></div>
   <div id="info"></div>
   <div id="btn-home"><i class="ti ti-home"></i> Ma planète</div>
-  <div id="version"><span id="ver">v1.3</span> · liaison serveur : planète d'origine + colonisation + couleurs</div>
+  <div id="btn-planetes"><i class="ti ti-list"></i> Mes planètes</div>
+  <div id="panel-planetes">
+    <h3>Mes planètes <span class="pp-close2" id="panel-close"><i class="ti ti-x"></i></span></h3>
+    <div id="liste-mes-planetes"></div>
+  </div>
+  <div id="version"><span id="ver">v1.4</span> · noms scientifiques + renommage + panneau Mes planètes</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -66,6 +88,13 @@
     <div id="pp-tag" style="margin-bottom:8px;"></div>
     <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin-bottom:6px;">Composition</div>
     <div id="pp-res"></div>
+    <div id="pp-rename">
+      <input id="pp-rename-input" type="text" maxlength="40" placeholder="Nouveau nom...">
+      <div class="rrow">
+        <button id="pp-rename-ok" style="background:linear-gradient(90deg,#3a6ad5,#5b9bd5);color:#fff;">Valider</button>
+        <button id="pp-rename-cancel" style="background:rgba(255,255,255,0.08);color:#aaa;">Annuler</button>
+      </div>
+    </div>
     <div id="pp-action"></div>
   </div>
 </div>
@@ -75,7 +104,7 @@
 //  Connecte au serveur : planete d'origine, colonisation, couleurs joueurs.
 // ============================================================
 let GRAINE=20260614, MON_PSEUDO=null, MON_HOME=null, MA_COULEUR='#9bd5d0';
-let POSSESSIONS={};   // addr -> {joueur, origine}
+let POSSESSIONS={};   // addr -> {joueur, origine, nom_perso}
 let COULEURS={};      // joueur -> couleur
 
 // palette deterministe de couleurs par joueur
@@ -117,7 +146,7 @@ async function entrer(){
 }
 async function chargerPossessions(){
   try{ const r=await fetch('/api/possessions'); const d=await r.json();
-    const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine}; }
+    const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine,nom_perso:p.nom_perso}; }
     POSSESSIONS=map;
   }catch(e){}
 }
@@ -131,9 +160,26 @@ async function rafraichirJoueurs(){
 async function coloniser(addr){
   try{ const r=await fetch('/api/coloniser',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pseudo:MON_PSEUDO,addr})});
     const d=await r.json();
-    if(d.succes){ POSSESSIONS[addr]={joueur:MON_PSEUDO,origine:false}; return {ok:true}; }
+    if(d.succes){ POSSESSIONS[addr]={joueur:MON_PSEUDO,origine:false,nom_perso:null}; return {ok:true}; }
     return {ok:false,msg:d.message||"Impossible"};
   }catch(e){ return {ok:false,msg:"Serveur injoignable"}; }
+}
+async function renommer(addr,nom){
+  try{ const r=await fetch('/api/renommer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pseudo:MON_PSEUDO,addr,nom})});
+    const d=await r.json();
+    if(d.succes){ if(POSSESSIONS[addr]) POSSESSIONS[addr].nom_perso=nom||null; return {ok:true}; }
+    return {ok:false,msg:d.message||"Impossible"};
+  }catch(e){ return {ok:false,msg:"Serveur injoignable"}; }
+}
+// nom scientifique deterministe (IDENTIQUE au serveur galaxy.js)
+function nomScientifique(addr){
+  const m=/^S(\d+)-P(\d+)$/.exec(addr); if(!m) return addr;
+  const sysIdx=parseInt(m[1],10), pIdx=parseInt(m[2],10);
+  const lettres='bcdefghij'; const lettre=lettres[pIdx]||('p'+pIdx);
+  const prefixes=['HD','GJ','HIP','TYC','Kepler','TOI','WASP','K'];
+  let s=(100000+sysIdx+99)>>>0; s=(s*1664525+1013904223)>>>0; const prefixe=prefixes[Math.floor((s/4294967296)*prefixes.length)];
+  const num=1000+(sysIdx%9000);
+  return prefixe+'-'+num+' '+lettre;
 }
 // ============================================================
 //  MOTEUR DE GALAXIE (identique a la generation serveur galaxy.js)
@@ -329,8 +375,12 @@ function demarrerJeu(){
   function planetAtCursor(){ let best=null,bd=Infinity; for(const c of candidates){ const d=Math.hypot(mouse.x-c.px,mouse.y-c.py); const tol=Math.max(16,c.scr+10); if(d<tol&&d<bd){ bd=d; best=c; } } return best; }
 
   function densBar(d,tier){ const col=TIER_COL[tier]; let s=''; for(let i=0;i<10;i++) s+='<span style="display:inline-block;width:5px;height:11px;margin-right:1px;border-radius:1px;background:'+(i<d?col:'rgba(255,255,255,0.1)')+';"></span>'; return s; }
+  function nomAffiche(p){ const o=POSSESSIONS[p.addr]; return (o&&o.nom_perso)?o.nom_perso:p.name; }
   function montrerPopup(p){
-    selectedPlanet=p; document.getElementById('pp-nom').textContent=p.name; document.getElementById('pp-type').innerHTML=p.def.label;
+    selectedPlanet=p;
+    document.getElementById('pp-nom').textContent=nomAffiche(p);
+    // type + nom scientifique en sous-titre
+    document.getElementById('pp-type').innerHTML=p.def.label+' · <span style="font-style:italic;color:#7a8aa5">'+nomScientifique(p.addr)+'</span>';
     const owner=POSSESSIONS[p.addr];
     const ownEl=document.getElementById('pp-owner');
     if(owner){ const c=couleurJoueur(owner.joueur); ownEl.innerHTML='<span style="color:'+c+'">● '+owner.joueur+(owner.joueur===MON_PSEUDO?' (vous)':'')+(owner.origine?' · monde d\'origine':'')+'</span>'; }
@@ -339,15 +389,76 @@ function demarrerJeu(){
     let html=''; if(!p.resources.length) html='<div style="color:#5b6b8a;font-size:12px;">Aucune ressource notable</div>';
     for(const rr of p.resources){ const def=RES[rr.key]; html+='<div style="padding:5px 0;border-bottom:0.5px solid rgba(255,255,255,0.05);"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;"><span style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#dfe6f5;"><i class="'+def.icon+'" style="color:'+def.col+';font-size:15px;"></i>'+def.label+'</span><span style="font-size:10px;color:'+TIER_COL[rr.tier]+';font-weight:500;">'+rr.d+'/10</span></div><div style="line-height:0;">'+densBar(rr.d,rr.tier)+'</div></div>'; }
     document.getElementById('pp-res').innerHTML=html;
-    // bouton d'action selon possession
+    document.getElementById('pp-rename').style.display='none';
     const act=document.getElementById('pp-action');
     if(!owner){ act.innerHTML='<button class="btn-colo" id="do-colo"><i class="ti ti-flag"></i> Coloniser</button>';
       document.getElementById('do-colo').onclick=async()=>{ act.innerHTML='<button class="btn-colo" disabled>Colonisation...</button>';
-        const res=await coloniser(p.addr); if(res.ok){ montrerPopup(p); } else { act.innerHTML='<button class="btn-taken">'+res.msg+'</button>'; setTimeout(()=>montrerPopup(p),1500); } };
-    } else if(owner.joueur===MON_PSEUDO){ act.innerHTML='<button class="btn-mine"><i class="ti ti-check"></i> Votre planète</button>';
+        const res=await coloniser(p.addr); if(res.ok){ montrerPopup(p); majPanneauPlanetes(); } else { act.innerHTML='<button class="btn-taken">'+res.msg+'</button>'; setTimeout(()=>montrerPopup(p),1500); } };
+    } else if(owner.joueur===MON_PSEUDO){
+      act.innerHTML='<button class="btn-mine" id="do-rename"><i class="ti ti-pencil"></i> Renommer</button>';
+      document.getElementById('do-rename').onclick=()=>{
+        const rn=document.getElementById('pp-rename'); rn.style.display='block';
+        const inp=document.getElementById('pp-rename-input'); inp.value=owner.nom_perso||''; inp.focus();
+      };
     } else { act.innerHTML='<button class="btn-taken"><i class="ti ti-lock"></i> Possédée par '+owner.joueur+'</button>'; }
     document.getElementById('popup').style.display='block';
   }
+  // gestion des boutons de renommage (une seule fois)
+  document.getElementById('pp-rename-ok').onclick=async()=>{
+    if(!selectedPlanet) return;
+    const nom=document.getElementById('pp-rename-input').value.trim();
+    const res=await renommer(selectedPlanet.addr,nom);
+    if(res.ok){ document.getElementById('pp-rename').style.display='none'; montrerPopup(selectedPlanet); majPanneauPlanetes(); }
+  };
+  document.getElementById('pp-rename-input').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('pp-rename-ok').click(); });
+  document.getElementById('pp-rename-cancel').onclick=()=>{ document.getElementById('pp-rename').style.display='none'; };
+
+  // ---- PANNEAU MES PLANETES ----
+  function mesPlanetes(){
+    const out=[];
+    for(const addr in POSSESSIONS){
+      if(POSSESSIONS[addr].joueur===MON_PSEUDO){
+        const m=/^S(\d+)-P(\d+)$/.exec(addr); if(!m) continue;
+        const sysIdx=parseInt(m[1],10), pIdx=parseInt(m[2],10);
+        const sys=SYS_BY_IDX[sysIdx]; if(!sys) continue;
+        ensurePlanets(sys); const p=sys.planets[pIdx]; if(!p) continue;
+        out.push({addr,p,sys,origine:POSSESSIONS[addr].origine});
+      }
+    }
+    // monde d'origine en premier, puis par nom
+    out.sort((a,b)=> (b.origine?1:0)-(a.origine?1:0) || nomAffiche(a.p).localeCompare(nomAffiche(b.p)));
+    return out;
+  }
+  function majPanneauPlanetes(){
+    const liste=document.getElementById('liste-mes-planetes');
+    const mp=mesPlanetes();
+    if(mp.length===0){ liste.innerHTML='<div class="mp-empty">Aucune planète colonisée pour l\'instant.<br><br>Clique une planète libre et colonise-la !</div>'; return; }
+    let html='';
+    for(const it of mp){
+      const sel=selectedPlanet===it.p?' sel':'';
+      html+='<div class="mp-item'+sel+'" data-addr="'+it.addr+'">'+
+        '<div class="mp-nom">'+(it.origine?'<i class="ti ti-home" style="font-size:12px;color:'+MA_COULEUR+'"></i>':'<i class="ti ti-planet" style="font-size:12px;color:'+MA_COULEUR+'"></i>')+nomAffiche(it.p)+'</div>'+
+        '<div class="mp-sci">'+nomScientifique(it.addr)+'</div>'+
+        '<div class="mp-type">'+it.p.def.label+' · '+it.sys.name+'</div>'+
+      '</div>';
+    }
+    liste.innerHTML=html;
+    // 1 clic = selectionne (popup), 2 clics = centre
+    liste.querySelectorAll('.mp-item').forEach(el=>{
+      const addr=el.getAttribute('data-addr');
+      const m=/^S(\d+)-P(\d+)$/.exec(addr); const sysIdx=parseInt(m[1],10), pIdx=parseInt(m[2],10);
+      const sys=SYS_BY_IDX[sysIdx]; ensurePlanets(sys); const p=sys.planets[pIdx];
+      el.addEventListener('click',()=>{ montrerPopup(p); majPanneauPlanetes(); });
+      el.addEventListener('dblclick',()=>{ cam.tx=sys.x; cam.ty=sys.y; cam.tzoom=Math.max(cam.tzoom,3); montrerPopup(p); });
+    });
+  }
+  window.majPanneauPlanetes=majPanneauPlanetes;
+  document.getElementById('btn-planetes').addEventListener('click',()=>{
+    const pan=document.getElementById('panel-planetes');
+    const show=pan.style.display!=='flex'; pan.style.display=show?'flex':'none';
+    if(show) majPanneauPlanetes();
+  });
+  document.getElementById('panel-close').addEventListener('click',()=>{ document.getElementById('panel-planetes').style.display='none'; });
 
   window.allerAuHome=function(){
     if(!MON_HOME) return;
@@ -394,7 +505,7 @@ function demarrerJeu(){
           for(const it of drawn){ if(it.scr>1.2) drawDetailedPlanet(it.p,it.px,it.py,it.scr,sp.x,sp.y,t,fS); else { ctx.globalAlpha=fS; ctx.fillStyle=it.p.def.water||'rgba('+(it.p.def.atmo||'150,150,150')+',1)'; ctx.beginPath(); ctx.arc(it.px,it.py,Math.max(1,it.scr),0,6.28); ctx.fill(); ctx.globalAlpha=1;
               const owner=POSSESSIONS[it.p.addr]; if(owner){ ctx.strokeStyle=couleurJoueur(owner.joueur); ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(it.px,it.py,Math.max(3,it.scr+2),0,6.28); ctx.stroke(); } }
             if(fS>0.4) candidates.push(it);
-            if((fPN>0.05&&it.scr>2)||selectedPlanet===it.p){ const a=Math.max(fPN,selectedPlanet===it.p?1:0); ctx.fillStyle='rgba(210,225,255,'+(0.85*a).toFixed(2)+')'; ctx.font='11px sans-serif'; ctx.fillText(it.p.name,it.px,it.py-it.scr-5); } }
+            if((fPN>0.05&&it.scr>2)||selectedPlanet===it.p){ const a=Math.max(fPN,selectedPlanet===it.p?1:0); ctx.fillStyle='rgba(210,225,255,'+(0.85*a).toFixed(2)+')'; ctx.font='11px sans-serif'; ctx.fillText(nomAffiche(it.p),it.px,it.py-it.scr-5); } }
         } else { si=drawStar(sp,sys,fA,fS,bs,t); }
         if(!mouse.dragged){ const hr=Math.max(12,si.haloR*0.5); if(Math.hypot(mouse.x-sp.x,mouse.y-sp.y)<hr) hoverSys=sys; }
         if((fA>0.15||hoverSys===sys)&&cam.zoom>LOD_APPROACH){ const a=Math.max(fA,hoverSys===sys?1:0); const yo=si.haloR+5+fS*8; ctx.fillStyle='rgba(255,255,255,'+(0.7*a).toFixed(2)+')'; ctx.font=(hoverSys===sys?'bold ':'')+'12px sans-serif'; ctx.fillText(sys.name,sp.x,sp.y-yo); }
