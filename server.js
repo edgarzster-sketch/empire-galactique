@@ -78,7 +78,27 @@ async function preparerBase() {
       PRIMARY KEY (joueur, ressource)
     )
   `);
-  console.log("Base prete : joueurs, sessions, titres, possessions, stocks OK");
+  // batiments : niveau de chaque batiment sur chaque planete
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS batiments (
+      addr TEXT NOT NULL,
+      code TEXT NOT NULL,
+      niveau INTEGER DEFAULT 0,
+      PRIMARY KEY (addr, code)
+    )
+  `);
+  // construction : une seule construction en cours par planete (la file)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS constructions (
+      addr TEXT PRIMARY KEY,
+      joueur TEXT NOT NULL,
+      code TEXT NOT NULL,
+      niveau_vise INTEGER NOT NULL,
+      debut TIMESTAMPTZ DEFAULT NOW(),
+      fin TIMESTAMPTZ NOT NULL
+    )
+  `);
+  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions OK");
 }
 
 // helper : une adresse est-elle deja occupee ?
@@ -279,6 +299,18 @@ app.post("/api/coloniser", async (req, res) => {
 //  joueur depuis leur derniere recolte, puis renvoie son stock.
 //  Calcul "a la demande" : aucune boucle permanente cote serveur.
 // ============================================================
+// production effective d'une planete = production de base * bonus batiments.
+// L'extracteur ajoute +15% par niveau sur TOUTES les ressources.
+async function productionEffective(addr) {
+  const base = galaxy.productionHoraire(addr);
+  const niv = await niveauxBatiments(addr);
+  const nivExtracteur = niv.extracteur || 0;
+  const facteur = 1 + nivExtracteur * 0.15;
+  const out = {};
+  for (const r in base) out[r] = base[r] * facteur;
+  return out;
+}
+
 async function encaisserEtLireStock(pseudo) {
   const client = await pool.connect();
   try {
@@ -291,7 +323,7 @@ async function encaisserEtLireStock(pseudo) {
     const now = Date.now();
     const gains = {};   // ressource -> quantite gagnee
     for (const row of planetes.rows) {
-      const prod = galaxy.productionHoraire(row.addr);   // {res: qte/heure}
+      const prod = await productionEffective(row.addr);   // {res: qte/heure} avec bonus
       const dernier = new Date(row.recolte_le).getTime();
       const heures = Math.max(0, (now - dernier) / 3600000);
       if (heures <= 0) continue;
@@ -330,7 +362,7 @@ async function encaisserEtLireStock(pseudo) {
   );
   const prodTotale = {};
   for (const row of planetes.rows) {
-    const prod = galaxy.productionHoraire(row.addr);
+    const prod = await productionEffective(row.addr);
     for (const res in prod) prodTotale[res] = (prodTotale[res]||0) + prod[res];
   }
   const stockObj = {};
@@ -437,7 +469,116 @@ app.post("/api/profil", async (req, res) => {
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
-app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.7" }));
+// ============================================================
+//  CONSTRUCTION DE BATIMENTS
+// ============================================================
+// finalise les constructions terminees d'une planete (applique le niveau)
+async function finaliserConstructions(addr) {
+  const c = await pool.query("SELECT * FROM constructions WHERE addr=$1 AND fin <= NOW()", [addr]);
+  for (const ct of c.rows) {
+    await pool.query(
+      `INSERT INTO batiments (addr, code, niveau) VALUES ($1,$2,$3)
+       ON CONFLICT (addr, code) DO UPDATE SET niveau=$3`,
+      [addr, ct.code, ct.niveau_vise]
+    );
+    await pool.query("DELETE FROM constructions WHERE addr=$1", [addr]);
+  }
+}
+
+// niveaux actuels des batiments d'une planete -> {code: niveau}
+async function niveauxBatiments(addr) {
+  const r = await pool.query("SELECT code, niveau FROM batiments WHERE addr=$1", [addr]);
+  const out = {};
+  for (const row of r.rows) out[row.code] = row.niveau;
+  return out;
+}
+
+// GET etat des batiments d'une planete (+ construction en cours)
+app.get("/api/batiments", async (req, res) => {
+  const addr = (req.query.addr || "").trim();
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  try {
+    await finaliserConstructions(addr);
+    const niveaux = await niveauxBatiments(addr);
+    const enCours = await pool.query("SELECT code, niveau_vise, fin FROM constructions WHERE addr=$1", [addr]);
+    // calcule le prochain cout/temps pour chaque batiment
+    const dispo = {};
+    for (const code in galaxy.BATIMENTS) {
+      const niv = niveaux[code] || 0;
+      const b = galaxy.BATIMENTS[code];
+      dispo[code] = {
+        niveau: niv,
+        coutProchain: niv < b.max ? galaxy.coutBatiment(code, niv + 1) : null,
+        tempsProchain: niv < b.max ? galaxy.tempsBatiment(code, niv + 1) : null,
+        prerequisOk: galaxy.prerequisOk(code, niveaux),
+        max: b.max
+      };
+    }
+    res.json({
+      addr, niveaux, dispo,
+      construction: enCours.rows.length ? enCours.rows[0] : null
+    });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST lance une construction (authentifie, debite les ressources)
+app.post("/api/construire", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  const addr = (req.body.addr || "").trim();
+  const code = (req.body.code || "").trim();
+  if (!galaxy.BATIMENTS[code]) return res.status(400).json({ erreur: "Bâtiment inconnu" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  const client = await pool.connect();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Non authentifié" });
+    await client.query("BEGIN");
+    // la planete appartient-elle au joueur ?
+    const poss = await client.query("SELECT joueur FROM possessions WHERE addr=$1 FOR UPDATE", [addr]);
+    if (!poss.rows.length || poss.rows[0].joueur !== pseudo) {
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Cette planète ne vous appartient pas." });
+    }
+    // deja une construction en cours ?
+    const enCours = await client.query("SELECT 1 FROM constructions WHERE addr=$1", [addr]);
+    if (enCours.rows.length) {
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Une construction est déjà en cours sur cette planète." });
+    }
+    // niveau actuel + prerequis
+    const niveauxR = await client.query("SELECT code, niveau FROM batiments WHERE addr=$1", [addr]);
+    const niveaux = {}; for (const row of niveauxR.rows) niveaux[row.code] = row.niveau;
+    const nivActuel = niveaux[code] || 0;
+    const b = galaxy.BATIMENTS[code];
+    if (nivActuel >= b.max) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Niveau maximum atteint." }); }
+    if (!galaxy.prerequisOk(code, niveaux)) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Prérequis non remplis." }); }
+    const niveauVise = nivActuel + 1;
+    const cout = galaxy.coutBatiment(code, niveauVise);
+    // d'abord on encaisse la production pour avoir le stock a jour
+    // (encaissement inline, comme /api/stock mais dans la transaction)
+    // verifie le stock
+    for (const r in cout) {
+      const s = await client.query("SELECT quantite FROM stocks WHERE joueur=$1 AND ressource=$2", [pseudo, r]);
+      const q = s.rows.length ? s.rows[0].quantite : 0;
+      if (q < cout[r]) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Ressources insuffisantes (" + r + ")." }); }
+    }
+    // debite
+    for (const r in cout) {
+      await client.query("UPDATE stocks SET quantite = quantite - $1 WHERE joueur=$2 AND ressource=$3", [cout[r], pseudo, r]);
+    }
+    // cree la construction
+    const tempsSec = galaxy.tempsBatiment(code, niveauVise);
+    await client.query(
+      "INSERT INTO constructions (addr, joueur, code, niveau_vise, fin) VALUES ($1,$2,$3,$4, NOW() + ($5 || ' seconds')::interval)",
+      [addr, pseudo, code, niveauVise, tempsSec]
+    );
+    await client.query("COMMIT");
+    res.json({ succes: true, code, niveauVise, tempsSec });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(()=>{});
+    res.status(500).json({ erreur: e.message });
+  } finally { client.release(); }
+});
+
+app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.8" }));
 
 preparerBase()
   .then(() => app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`)))
