@@ -90,22 +90,22 @@
   <div id="perf-badge"></div>
   <div id="joueurs-panel"><h4>Commandants</h4><div id="liste-joueurs">—</div></div>
   <div id="info"></div>
-  <div id="btn-home"><i class="ti ti-home"></i> Ma planète</div>
-  <div id="btn-planetes"><i class="ti ti-list"></i> Mes planètes</div>
-  <div id="btn-empire"><i class="ti ti-chart-bar"></i> Empire</div>
+  <div id="btn-home">⌂ Ma planète</div>
+  <div id="btn-planetes">☰ Mes planètes</div>
+  <div id="btn-empire">◊ Empire</div>
   <div id="panel-planetes">
-    <h3>Mes planètes <span class="pp-close2" id="panel-close"><i class="ti ti-x"></i></span></h3>
+    <h3>Mes planètes <span class="pp-close2" id="panel-close">✕</span></h3>
     <div id="liste-mes-planetes"></div>
   </div>
   <div id="panel-empire">
-    <h3><i class="ti ti-chart-bar"></i> Mon Empire <span class="pp-close2" id="empire-close"><i class="ti ti-x"></i></span></h3>
+    <h3>◊ Mon Empire <span class="pp-close2" id="empire-close">✕</span></h3>
     <div id="empire-content"></div>
   </div>
-  <div id="version"><span id="ver">v1.7</span> · pastilles éléments (tableau périodique) + ressources en haut</div>
+  <div id="version"><span id="ver">v1.8</span> · symboles ASCII (fix carrés vides) + ressources en haut</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
-      <div class="ppclose" id="pp-close"><i class="ti ti-x"></i></div>
+      <div class="ppclose" id="pp-close">✕</div>
     </div>
     <div id="pp-type" style="font-size:12px;color:#8a97b5;margin-bottom:2px;">—</div>
     <div id="pp-owner" style="font-size:12px;margin-bottom:8px;"></div>
@@ -214,21 +214,21 @@ function nomScientifique(addr){
 const RES_META={
   fer:{label:'Fer',sym:'Fe',col:'#b08d6a',tier:0},silicates:{label:'Silicates',sym:'Si',col:'#a0998c',tier:0},
   aluminium:{label:'Aluminium',sym:'Al',col:'#c8c2bc',tier:0},carbone:{label:'Carbone',sym:'C',col:'#6a7a5a',tier:0},
-  eau:{label:'Eau',sym:'H₂O',col:'#5b9bd5',tier:0},biomasse:{label:'Biomasse',sym:'Bio',col:'#7ac74f',tier:0},
-  hydrogene:{label:'Hydrogène',sym:'H',col:'#9bb8ff',tier:0},solaire:{label:'Énergie solaire',sym:'☀',col:'#ffc040',tier:0},
+  eau:{label:'Eau',sym:'Eau',col:'#5b9bd5',tier:0},biomasse:{label:'Biomasse',sym:'Bio',col:'#7ac74f',tier:0},
+  hydrogene:{label:'Hydrogène',sym:'H',col:'#9bb8ff',tier:0},solaire:{label:'Énergie solaire',sym:'So',col:'#ffc040',tier:0},
   cuivre:{label:'Cuivre',sym:'Cu',col:'#d18a5a',tier:1},nickel:{label:'Nickel',sym:'Ni',col:'#b8b8c0',tier:1},
   zinc:{label:'Zinc',sym:'Zn',col:'#9aa0a8',tier:1},plomb:{label:'Plomb',sym:'Pb',col:'#6a6a78',tier:1},
   etain:{label:'Étain',sym:'Sn',col:'#d8d0c0',tier:1},soufre:{label:'Soufre',sym:'S',col:'#e0b040',tier:1},
-  methane:{label:'Méthane',sym:'CH₄',col:'#a0b0d0',tier:1},
+  methane:{label:'Méthane',sym:'Me',col:'#a0b0d0',tier:1},
   titane:{label:'Titane',sym:'Ti',col:'#c4c4cc',tier:2},cobalt:{label:'Cobalt',sym:'Co',col:'#4a6bd5',tier:2},
-  lithium:{label:'Lithium',sym:'Li',col:'#e0d090',tier:2},cristaux:{label:'Cristaux',sym:'◈',col:'#6bb8e0',tier:2},
-  helium3:{label:'Hélium-3',sym:'He³',col:'#e06baa',tier:2},
+  lithium:{label:'Lithium',sym:'Li',col:'#e0d090',tier:2},cristaux:{label:'Cristaux',sym:'Cr',col:'#6bb8e0',tier:2},
+  helium3:{label:'Hélium-3',sym:'He',col:'#e06baa',tier:2},
   argent:{label:'Argent',sym:'Ag',col:'#e8e0e8',tier:3},uranium:{label:'Uranium',sym:'U',col:'#9bd54f',tier:3},
   thorium:{label:'Thorium',sym:'Th',col:'#7ab84f',tier:3},terres_rares:{label:'Terres rares',sym:'Tr',col:'#a0c8e8',tier:3},
   gaz_exo:{label:'Gaz exotiques',sym:'Gx',col:'#d8a878',tier:3},
   or:{label:'Or',sym:'Au',col:'#ffd84a',tier:4},platine:{label:'Platine',sym:'Pt',col:'#dfe8f0',tier:4},
-  palladium:{label:'Palladium',sym:'Pd',col:'#c8d0d8',tier:4},cristaux_exo:{label:'Cristaux exotiques',sym:'◈',col:'#c89aff',tier:4},
-  antimatiere:{label:'Antimatière',sym:'A̅',col:'#c89aff',tier:5},metamateriaux:{label:'Métamatériaux',sym:'Mμ',col:'#88e0d0',tier:5}
+  palladium:{label:'Palladium',sym:'Pd',col:'#c8d0d8',tier:4},cristaux_exo:{label:'Cristaux exotiques',sym:'Cx',col:'#c89aff',tier:4},
+  antimatiere:{label:'Antimatière',sym:'Am',col:'#c89aff',tier:5},metamateriaux:{label:'Métamatériaux',sym:'Mm',col:'#88e0d0',tier:5}
 };
 const TIER_COL_GLOBAL=['#1d9e75','#639922','#ba7517','#d85a30','#993556','#7f77dd'];
 // pastille facon tableau periodique : carre colore avec symbole. Taille en px.
@@ -491,16 +491,16 @@ function demarrerJeu(){
     }
     document.getElementById('pp-rename').style.display='none';
     const act=document.getElementById('pp-action');
-    if(!owner){ act.innerHTML='<button class="btn-colo" id="do-colo"><i class="ti ti-flag"></i> Coloniser</button>';
+    if(!owner){ act.innerHTML='<button class="btn-colo" id="do-colo">» Coloniser</button>';
       document.getElementById('do-colo').onclick=async()=>{ act.innerHTML='<button class="btn-colo" disabled>Colonisation...</button>';
         const res=await coloniser(p.addr); if(res.ok){ chargerStock(); montrerPopup(p); majPanneauPlanetes(); } else { act.innerHTML='<button class="btn-taken">'+res.msg+'</button>'; setTimeout(()=>montrerPopup(p),1500); } };
     } else if(owner.joueur===MON_PSEUDO){
-      act.innerHTML='<button class="btn-mine" id="do-rename"><i class="ti ti-pencil"></i> Renommer</button>';
+      act.innerHTML='<button class="btn-mine" id="do-rename">✎ Renommer</button>';
       document.getElementById('do-rename').onclick=()=>{
         const rn=document.getElementById('pp-rename'); rn.style.display='block';
         const inp=document.getElementById('pp-rename-input'); inp.value=owner.nom_perso||''; inp.focus();
       };
-    } else { act.innerHTML='<button class="btn-taken"><i class="ti ti-lock"></i> Possédée par '+owner.joueur+'</button>'; }
+    } else { act.innerHTML='<button class="btn-taken">🔒 Possédée par '+owner.joueur+'</button>'; }
     document.getElementById('popup').style.display='block';
   }
   // gestion des boutons de renommage (une seule fois)
