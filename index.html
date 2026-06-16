@@ -13,12 +13,16 @@
   #connexion{position:fixed;inset:0;background:radial-gradient(ellipse at 50% 40%,#0a1228,#02030a);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;}
   #connexion h1{font-size:clamp(28px,6vw,46px);letter-spacing:3px;margin-bottom:8px;background:linear-gradient(90deg,#9bd5d0,#9bb8ff,#ffb0d8);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
   #connexion p{color:#8a97b5;margin-bottom:30px;font-size:14px;}
-  #connexion input{width:280px;max-width:80vw;padding:13px 16px;border-radius:10px;border:1px solid #2a3a5a;background:#0a1020;color:#fff;font-size:16px;text-align:center;outline:none;}
+  #connexion input{width:280px;max-width:80vw;padding:13px 16px;border-radius:10px;border:1px solid #2a3a5a;background:#0a1020;color:#fff;font-size:16px;text-align:center;outline:none;margin-bottom:10px;}
   #connexion input:focus{border-color:#9bb8ff;}
+  #auth-tabs{display:flex;gap:6px;margin-bottom:18px;background:rgba(10,16,32,0.6);padding:4px;border-radius:10px;}
+  .auth-tab{padding:9px 20px;border-radius:8px;border:none;background:transparent;color:#8a97b5;font-size:14px;cursor:pointer;transition:all .15s;}
+  .auth-tab.actif{background:linear-gradient(90deg,#3a6ad5,#5b9bd5);color:#fff;font-weight:600;}
+  #auth-form{display:flex;flex-direction:column;align-items:center;}
   #connexion button{margin-top:14px;padding:13px 34px;border-radius:10px;border:none;background:linear-gradient(90deg,#3a6ad5,#5b9bd5);color:#fff;font-size:16px;font-weight:600;cursor:pointer;transition:transform .1s;}
   #connexion button:active{transform:scale(0.97);}
   #msg{margin-top:14px;font-size:13px;min-height:18px;color:#ff9b7a;}
-  #hud{position:fixed;top:10px;left:10px;z-index:5;font-size:12px;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.5);padding:8px 12px;border-radius:8px;pointer-events:none;display:flex;align-items:center;gap:8px;}
+  #hud{position:fixed;top:10px;left:10px;z-index:5;font-size:12px;color:rgba(255,255,255,0.85);background:rgba(0,0,0,0.5);padding:8px 12px;border-radius:8px;display:flex;align-items:center;gap:8px;}
   #hud .pastille{width:11px;height:11px;border-radius:50%;display:inline-block;}
   #bandeau-stock{position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:6;background:rgba(6,10,20,0.82);backdrop-filter:blur(8px);border:1px solid rgba(120,140,180,0.18);border-radius:10px;padding:6px 12px;display:flex;flex-wrap:wrap;gap:14px;max-width:80vw;pointer-events:none;justify-content:center;}
   #bandeau-stock .res-item{display:flex;align-items:center;font-size:12.5px;color:#eef2fb;font-weight:500;}
@@ -37,6 +41,21 @@
   #btn-planetes{position:fixed;bottom:42px;right:118px;z-index:6;font-size:12px;color:#9bb8ff;background:rgba(10,20,35,0.8);border:1px solid #2a3a5a;padding:7px 12px;border-radius:8px;cursor:pointer;}
   #btn-empire{position:fixed;bottom:42px;right:235px;z-index:6;font-size:12px;color:#9bd5a0;background:rgba(10,25,18,0.8);border:1px solid #2a5a3a;padding:7px 12px;border-radius:8px;cursor:pointer;}
   #panel-empire{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;max-width:90vw;max-height:80vh;z-index:9;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:16px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.6);}
+  #panel-profil{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:92vw;max-height:85vh;z-index:10;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:18px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.7);}
+  #panel-profil h3{font-size:14px;color:#9bb8ff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
+  #profil-content{overflow-y:auto;}
+  .pf-row{margin-bottom:12px;}
+  .pf-label{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin-bottom:5px;}
+  .pf-input{width:100%;padding:9px 11px;border-radius:8px;border:1px solid #2a3a5a;background:#0a1020;color:#fff;font-size:13px;outline:none;}
+  .pf-input:focus{border-color:#9bb8ff;}
+  .pf-stat{display:flex;justify-content:space-between;padding:7px 0;border-bottom:0.5px solid rgba(255,255,255,0.06);font-size:13px;}
+  .pf-stat .v{color:#9bd5a0;font-weight:600;}
+  .pf-titre{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:4px 9px;border-radius:7px;background:rgba(155,184,255,0.1);border:1px solid rgba(155,184,255,0.25);color:#bcd0ff;margin:0 4px 4px 0;}
+  .pf-choix{display:flex;flex-wrap:wrap;gap:6px;}
+  .pf-opt{padding:6px 10px;border-radius:7px;border:1px solid #2a3a5a;background:rgba(255,255,255,0.03);color:#bfc8d8;font-size:12px;cursor:pointer;}
+  .pf-opt.sel{border-color:#9bb8ff;background:rgba(155,184,255,0.15);color:#fff;}
+  .pf-btn{width:100%;padding:11px;border-radius:9px;border:none;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;}
+  .pf-color{width:38px;height:34px;border-radius:7px;border:1px solid #2a3a5a;cursor:pointer;padding:2px;background:#0a1020;}
   #panel-empire h3{font-size:14px;color:#9bd5a0;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:6px;}
   #empire-content{overflow-y:auto;}
   .emp-section{font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin:14px 0 7px;}
@@ -78,13 +97,20 @@
 <div id="connexion">
   <h1>EMPIRE GALACTIQUE</h1>
   <p>Conquête spatiale · univers persistant</p>
-  <input id="pseudo" type="text" placeholder="Ton pseudo de commandant" maxlength="20" autocomplete="off">
-  <button id="entrer">Entrer dans la galaxie</button>
+  <div id="auth-tabs">
+    <button id="tab-connexion" class="auth-tab actif">Se connecter</button>
+    <button id="tab-inscription" class="auth-tab">Créer un compte</button>
+  </div>
+  <div id="auth-form">
+    <input id="pseudo" type="text" placeholder="Pseudo de commandant" maxlength="20" autocomplete="off">
+    <input id="motdepasse" type="password" placeholder="Mot de passe" maxlength="60" autocomplete="off">
+    <button id="entrer">Entrer dans la galaxie</button>
+  </div>
   <div id="msg"></div>
 </div>
 <div id="jeu" style="display:none">
   <canvas id="sky"></canvas>
-  <div id="hud"><span class="pastille" id="hud-col"></span>Commandant <strong id="moncom">—</strong></div>
+  <div id="hud"><span class="pastille" id="hud-col"></span>Commandant <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profil</span></div>
   <div id="bandeau-stock"></div>
   <div id="scale-badge">Galaxie</div>
   <div id="perf-badge"></div>
@@ -101,7 +127,11 @@
     <h3>◊ Mon Empire <span class="pp-close2" id="empire-close">✕</span></h3>
     <div id="empire-content"></div>
   </div>
-  <div id="version"><span id="ver">v1.8</span> · symboles ASCII (fix carrés vides) + ressources en haut</div>
+  <div id="panel-profil">
+    <h3 id="profil-titre">Profil <span class="pp-close2" id="profil-close">✕</span></h3>
+    <div id="profil-content"></div>
+  </div>
+  <div id="version"><span id="ver">v2.0</span> · comptes sécurisés + profils + emblèmes</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -127,13 +157,16 @@
 //  EMPIRE GALACTIQUE — client v1.3
 //  Connecte au serveur : planete d'origine, colonisation, couleurs joueurs.
 // ============================================================
-let GRAINE=20260614, MON_PSEUDO=null, MON_HOME=null, MA_COULEUR='#9bd5d0';
+let GRAINE=20260614, MON_PSEUDO=null, MON_HOME=null, MA_COULEUR='#9bd5d0', MON_JETON=null;
 let POSSESSIONS={};   // addr -> {joueur, origine, nom_perso}
 let COULEURS={};      // joueur -> couleur
+let PROFILS_CACHE={}; // pseudo -> profil (couleur, embleme...)
 
-// palette deterministe de couleurs par joueur
+// palette deterministe de couleurs par joueur (fallback si pas de couleur perso)
 const PALETTE=['#9bd5d0','#ff9b7a','#9bb8ff','#ffd84a','#ff7ad8','#7ade9b','#d89bff','#ffb04a','#5bd5e0','#e0d05b'];
 function couleurJoueur(nom){
+  // priorite a la couleur personnalisee du profil si connue
+  if(PROFILS_CACHE[nom]&&PROFILS_CACHE[nom].couleur) return PROFILS_CACHE[nom].couleur;
   if(COULEURS[nom]) return COULEURS[nom];
   let h=0; for(let i=0;i<nom.length;i++) h=(h*31+nom.charCodeAt(i))>>>0;
   const c=PALETTE[h%PALETTE.length]; COULEURS[nom]=c; return c;
@@ -142,36 +175,206 @@ function couleurJoueur(nom){
 const elConnexion=document.getElementById('connexion');
 const elJeu=document.getElementById('jeu');
 const elPseudo=document.getElementById('pseudo');
+const elMdp=document.getElementById('motdepasse');
 const elMsg=document.getElementById('msg');
+let modeInscription=false;
+document.getElementById('tab-connexion').addEventListener('click',()=>setMode(false));
+document.getElementById('tab-inscription').addEventListener('click',()=>setMode(true));
+function setMode(insc){ modeInscription=insc;
+  document.getElementById('tab-connexion').classList.toggle('actif',!insc);
+  document.getElementById('tab-inscription').classList.toggle('actif',insc);
+  document.getElementById('entrer').textContent=insc?'Créer mon empire':'Entrer dans la galaxie';
+  elMsg.textContent='';
+}
 document.getElementById('entrer').addEventListener('click',entrer);
-elPseudo.addEventListener('keydown',e=>{ if(e.key==='Enter') entrer(); });
+elMdp.addEventListener('keydown',e=>{ if(e.key==='Enter') entrer(); });
+elPseudo.addEventListener('keydown',e=>{ if(e.key==='Enter') elMdp.focus(); });
+
+// reconnexion auto via jeton stocke
+window.addEventListener('load',async()=>{
+  const jeton=localStorage.getItem('eg_jeton');
+  if(!jeton) return;
+  try{ const r=await fetch('/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton})});
+    const d=await r.json();
+    if(d.succes){ MON_JETON=jeton; await demarrerAvecSession(d); }
+    else localStorage.removeItem('eg_jeton');
+  }catch(e){}
+});
 
 let goHomeRequested=false;
 async function entrer(){
   const pseudo=elPseudo.value.trim();
-  if(pseudo.length<2){ elMsg.textContent="Choisis un pseudo (2 lettres min)."; return; }
-  elMsg.style.color='#8a97b5'; elMsg.textContent="Connexion...";
+  const mdp=elMdp.value;
+  if(pseudo.length<2){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Pseudo : 2 caractères min."; return; }
+  if(mdp.length<4){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Mot de passe : 4 caractères min."; return; }
+  elMsg.style.color='#8a97b5'; elMsg.textContent=modeInscription?"Création...":"Connexion...";
+  const route=modeInscription?'/api/inscription':'/api/connexion';
   try{
-    const r=await fetch('/api/connexion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pseudo})});
-    const data=await r.json();
-    if(data.graine) GRAINE=data.graine;
-    MON_PSEUDO=data.pseudo||pseudo;
-    MON_HOME=data.home||null;
-    MA_COULEUR=couleurJoueur(MON_PSEUDO);
-    document.getElementById('moncom').textContent=MON_PSEUDO;
-    document.getElementById('hud-col').style.background=MA_COULEUR;
-    elConnexion.style.display='none'; elJeu.style.display='block';
-    await chargerPossessions();
-    await chargerStock();
-    demarrerJeu();
-    goHomeRequested=true; // la galaxie ira sur le home au 1er rendu
-    rafraichirJoueurs(); setInterval(rafraichirJoueurs,5000);
-    setInterval(chargerPossessions,4000); // polling colonisations
-    setInterval(chargerStock,15000);      // resync stock serveur toutes les 15s
-    setInterval(majBandeauStock,1000);    // interpolation visuelle chaque seconde
-    majBandeauStock();
+    const r=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pseudo,motdepasse:mdp})});
+    const d=await r.json();
+    if(d.erreur){ elMsg.style.color='#ff9b7a'; elMsg.textContent=d.erreur; return; }
+    if(!d.succes){
+      elMsg.style.color='#ff9b7a'; elMsg.textContent=d.message||"Échec.";
+      if(d.inconnu){ elMsg.innerHTML=d.message+' <span style="color:#9bb8ff;cursor:pointer;text-decoration:underline;" onclick="document.getElementById(\'tab-inscription\').click()">Créer ce compte ?</span>'; }
+      if(d.besoinMdp){ setMode(true); elMsg.style.color='#9bb8ff'; elMsg.textContent="Ce compte existe sans mot de passe — crée-en un pour le sécuriser."; }
+      return;
+    }
+    MON_JETON=d.jeton; localStorage.setItem('eg_jeton',d.jeton);
+    await demarrerAvecSession(d);
   }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Serveur injoignable. Réessaie."; }
 }
+
+async function demarrerAvecSession(d){
+  if(d.graine) GRAINE=d.graine;
+  MON_PSEUDO=d.pseudo;
+  MON_HOME=d.home||null;
+  // charger mon profil (couleur perso)
+  await chargerProfil(MON_PSEUDO);
+  MA_COULEUR=couleurJoueur(MON_PSEUDO);
+  document.getElementById('moncom').textContent=MON_PSEUDO;
+  document.getElementById('hud-col').style.background=MA_COULEUR;
+  elConnexion.style.display='none'; elJeu.style.display='block';
+  await chargerPossessions();
+  await chargerStock();
+  demarrerJeu();
+  goHomeRequested=true;
+  rafraichirJoueurs(); setInterval(rafraichirJoueurs,5000);
+  setInterval(chargerPossessions,4000);
+  setInterval(chargerStock,15000);
+  setInterval(majBandeauStock,1000);
+  majBandeauStock();
+}
+
+async function chargerProfil(pseudo){
+  try{ const r=await fetch('/api/profil?pseudo='+encodeURIComponent(pseudo)); if(!r.ok) return null;
+    const d=await r.json(); PROFILS_CACHE[pseudo]=d; return d;
+  }catch(e){ return null; }
+}
+async function deconnexion(){
+  if(MON_JETON){ try{ await fetch('/api/deconnexion',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON})}); }catch(e){} }
+  localStorage.removeItem('eg_jeton'); location.reload();
+}
+
+// ============================================================
+//  EMBLEMES (SVG, identique partout)
+// ============================================================
+const EMB_FORMES={
+  ecu:'M50,8 L88,22 V52 Q88,82 50,94 Q12,82 12,52 V22 Z',
+  rond:'M50,8 A42,42 0 1 1 49.9,8 Z',
+  losange:'M50,6 L90,50 L50,94 L10,50 Z',
+  blason:'M14,14 H86 V54 Q86,84 50,94 Q14,84 14,54 Z'
+};
+const EMB_FORMES_NOM={ecu:'Écu',rond:'Rond',losange:'Losange',blason:'Blason'};
+const EMB_SYMBOLES_NOM={etoile:'Étoile',aigle:'Aigle',couronne:'Couronne',planete:'Planète',epees:'Épées',orbe:'Orbe'};
+function embSymbole(type,c){
+  const s={
+    etoile:'<path d="M50,28 L56,44 L73,44 L59,54 L64,71 L50,61 L36,71 L41,54 L27,44 L44,44 Z" fill="'+c+'"/>',
+    aigle:'<path d="M50,34 L62,46 L58,46 L66,56 L54,52 L54,64 L46,64 L46,52 L34,56 L42,46 L38,46 Z" fill="'+c+'"/>',
+    couronne:'<path d="M32,58 L32,46 L40,52 L50,40 L60,52 L68,46 L68,58 Z" fill="'+c+'"/><rect x="32" y="58" width="36" height="5" fill="'+c+'"/>',
+    planete:'<circle cx="50" cy="50" r="13" fill="'+c+'"/><ellipse cx="50" cy="50" rx="22" ry="7" fill="none" stroke="'+c+'" stroke-width="2.5" transform="rotate(-20 50 50)"/>',
+    epees:'<path d="M50,30 L54,34 L44,64 L40,60 Z M50,30 L46,34 L56,64 L60,60 Z" fill="'+c+'"/>',
+    orbe:'<circle cx="50" cy="50" r="15" fill="none" stroke="'+c+'" stroke-width="3"/><circle cx="50" cy="50" r="5" fill="'+c+'"/><circle cx="50" cy="35" r="3" fill="'+c+'"/>'
+  };
+  return s[type]||s.etoile;
+}
+function embToSVG(emb,size){
+  if(!emb) emb={forme:'ecu',symbole:'etoile',c1:'#5b9bd5',c2:'#1c3a5a'};
+  const id='e'+Math.random().toString(36).slice(2,8);
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 100 100" style="flex-shrink:0;"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+emb.c1+'"/><stop offset="1" stop-color="'+emb.c2+'"/></linearGradient></defs><path d="'+(EMB_FORMES[emb.forme]||EMB_FORMES.ecu)+'" fill="url(#'+id+')" stroke="'+emb.c1+'" stroke-width="2.5"/>'+embSymbole(emb.symbole,'#ffffff')+'</svg>';
+}
+
+// ============================================================
+//  PANNEAU PROFIL
+// ============================================================
+let profilEnEdition=null; // brouillon d'emblème en cours d'édition
+async function ouvrirProfil(pseudo){
+  const estMoi=pseudo===MON_PSEUDO;
+  document.getElementById('panel-profil').style.display='flex';
+  document.getElementById('profil-titre').innerHTML=(estMoi?'Mon profil':'Profil de '+pseudo)+' <span class="pp-close2" id="profil-close">✕</span>';
+  document.getElementById('profil-close').onclick=()=>{ document.getElementById('panel-profil').style.display='none'; };
+  const c=document.getElementById('profil-content');
+  c.innerHTML='<div style="text-align:center;color:#5b6b8a;padding:20px;">Chargement...</div>';
+  const p=await chargerProfil(pseudo);
+  if(!p){ c.innerHTML='<div style="color:#ff9b7a;padding:10px;">Profil introuvable.</div>'; return; }
+  if(estMoi) afficherProfilEdition(p); else afficherProfilLecture(p);
+}
+function afficherProfilLecture(p){
+  const c=document.getElementById('profil-content');
+  const anc=p.cree_le?joursDepuis(p.cree_le):0;
+  let html='<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">'+embToSVG(p.embleme,72)+
+    '<div><div style="font-size:18px;font-weight:600;color:#fff;">'+(p.nom_empire||p.pseudo)+'</div>'+
+    '<div style="font-size:12px;color:#8a97b5;">Commandant '+p.pseudo+'</div>'+
+    (p.couleur?'<div style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+p.couleur+';margin-top:5px;border:1px solid rgba(255,255,255,0.3);"></div>':'')+'</div></div>';
+  if(p.bio) html+='<div style="font-size:13px;color:#bfc8d8;font-style:italic;padding:10px;background:rgba(255,255,255,0.03);border-radius:9px;margin-bottom:14px;">« '+escapeHtml(p.bio)+' »</div>';
+  html+='<div class="pf-label">Statistiques</div>';
+  html+='<div class="pf-stat"><span>Planètes contrôlées</span><span class="v">'+(p.stats?.planetes||0)+'</span></div>';
+  html+='<div class="pf-stat"><span>Production totale</span><span class="v">'+(p.stats?.productionTotale||0)+'/h</span></div>';
+  html+='<div class="pf-stat"><span>Ancienneté</span><span class="v">'+anc+' j</span></div>';
+  if(p.titres&&p.titres.length){ html+='<div class="pf-label" style="margin-top:14px;">Titres</div><div>';
+    for(const t of p.titres){ html+='<span class="pf-titre" title="'+escapeHtml(t.desc||'')+'">★ '+t.nom+'</span>'; } html+='</div>'; }
+  c.innerHTML=html;
+}
+function afficherProfilEdition(p){
+  const c=document.getElementById('profil-content');
+  profilEnEdition=p.embleme?{...p.embleme}:{forme:'ecu',symbole:'etoile',c1:(p.couleur||'#5b9bd5'),c2:'#1c3a5a'};
+  const anc=p.cree_le?joursDepuis(p.cree_le):0;
+  let html='<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;"><div id="emb-apercu">'+embToSVG(profilEnEdition,72)+'</div>'+
+    '<div style="flex:1;"><div class="pf-label">Aperçu de l\'emblème</div><div style="font-size:11px;color:#7a8aa5;">Modifie-le ci-dessous</div></div></div>';
+  // nom empire
+  html+='<div class="pf-row"><div class="pf-label">Nom de l\'empire</div><input class="pf-input" id="pf-empire" maxlength="30" value="'+escapeHtml(p.nom_empire||'')+'" placeholder="Ex: Dominion Stellaire"></div>';
+  // bio
+  html+='<div class="pf-row"><div class="pf-label">Devise / bio</div><input class="pf-input" id="pf-bio" maxlength="200" value="'+escapeHtml(p.bio||'')+'" placeholder="Ta devise de conquérant"></div>';
+  // forme
+  html+='<div class="pf-row"><div class="pf-label">Forme du blason</div><div class="pf-choix" id="pf-formes">';
+  for(const f in EMB_FORMES_NOM) html+='<div class="pf-opt'+(profilEnEdition.forme===f?' sel':'')+'" data-forme="'+f+'">'+EMB_FORMES_NOM[f]+'</div>';
+  html+='</div></div>';
+  // symbole
+  html+='<div class="pf-row"><div class="pf-label">Symbole</div><div class="pf-choix" id="pf-symboles">';
+  for(const s in EMB_SYMBOLES_NOM) html+='<div class="pf-opt'+(profilEnEdition.symbole===s?' sel':'')+'" data-symbole="'+s+'">'+EMB_SYMBOLES_NOM[s]+'</div>';
+  html+='</div></div>';
+  // couleurs
+  html+='<div class="pf-row"><div class="pf-label">Couleurs (empire + fond)</div><div style="display:flex;gap:10px;align-items:center;">'+
+    '<input type="color" class="pf-color" id="pf-c1" value="'+profilEnEdition.c1+'"> <span style="font-size:11px;color:#8a97b5;">Empire</span>'+
+    '<input type="color" class="pf-color" id="pf-c2" value="'+profilEnEdition.c2+'"> <span style="font-size:11px;color:#8a97b5;">Fond</span></div></div>';
+  // stats + titres
+  html+='<div class="pf-label" style="margin-top:6px;">Statistiques</div>';
+  html+='<div class="pf-stat"><span>Planètes</span><span class="v">'+(p.stats?.planetes||0)+'</span></div>';
+  html+='<div class="pf-stat"><span>Production totale</span><span class="v">'+(p.stats?.productionTotale||0)+'/h</span></div>';
+  html+='<div class="pf-stat"><span>Ancienneté</span><span class="v">'+anc+' j</span></div>';
+  if(p.titres&&p.titres.length){ html+='<div class="pf-label" style="margin-top:12px;">Titres débloqués</div><div>';
+    for(const t of p.titres) html+='<span class="pf-titre" title="'+escapeHtml(t.desc||'')+'">★ '+t.nom+'</span>'; html+='</div>'; }
+  html+='<button class="pf-btn" id="pf-save" style="background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;">Enregistrer</button>';
+  html+='<button class="pf-btn" id="pf-logout" style="background:rgba(255,120,90,0.12);color:#ff9b7a;">Se déconnecter</button>';
+  c.innerHTML=html;
+  // interactions edition embleme
+  function rafraichirApercu(){ document.getElementById('emb-apercu').innerHTML=embToSVG(profilEnEdition,72); }
+  c.querySelectorAll('#pf-formes .pf-opt').forEach(el=>el.onclick=()=>{ profilEnEdition.forme=el.dataset.forme; c.querySelectorAll('#pf-formes .pf-opt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); rafraichirApercu(); });
+  c.querySelectorAll('#pf-symboles .pf-opt').forEach(el=>el.onclick=()=>{ profilEnEdition.symbole=el.dataset.symbole; c.querySelectorAll('#pf-symboles .pf-opt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); rafraichirApercu(); });
+  document.getElementById('pf-c1').oninput=(e)=>{ profilEnEdition.c1=e.target.value; rafraichirApercu(); };
+  document.getElementById('pf-c2').oninput=(e)=>{ profilEnEdition.c2=e.target.value; rafraichirApercu(); };
+  document.getElementById('pf-save').onclick=sauverProfil;
+  document.getElementById('pf-logout').onclick=deconnexion;
+}
+async function sauverProfil(){
+  const nomEmpire=document.getElementById('pf-empire').value.trim();
+  const bio=document.getElementById('pf-bio').value.trim();
+  const couleur=profilEnEdition.c1; // la couleur d'empire devient la couleur du joueur
+  const btn=document.getElementById('pf-save'); btn.textContent='Enregistrement...'; btn.disabled=true;
+  try{
+    const r=await fetch('/api/profil',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON,nom_empire:nomEmpire,couleur,bio,embleme:profilEnEdition})});
+    const d=await r.json();
+    if(d.succes){
+      // maj cache + couleur en jeu
+      PROFILS_CACHE[MON_PSEUDO]=null; await chargerProfil(MON_PSEUDO);
+      MA_COULEUR=couleurJoueur(MON_PSEUDO);
+      document.getElementById('hud-col').style.background=MA_COULEUR;
+      btn.textContent='✓ Enregistré'; setTimeout(()=>{ btn.textContent='Enregistrer'; btn.disabled=false; },1200);
+    } else { btn.textContent='Erreur'; btn.disabled=false; }
+  }catch(e){ btn.textContent='Erreur réseau'; btn.disabled=false; }
+}
+function joursDepuis(dateStr){ return Math.max(0,Math.floor((Date.now()-new Date(dateStr).getTime())/86400000)); }
+function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+document.getElementById('hud-profil').addEventListener('click',()=>ouvrirProfil(MON_PSEUDO));
 async function chargerPossessions(){
   try{ const r=await fetch('/api/possessions'); const d=await r.json();
     const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine,nom_perso:p.nom_perso}; }
@@ -500,7 +703,8 @@ function demarrerJeu(){
         const rn=document.getElementById('pp-rename'); rn.style.display='block';
         const inp=document.getElementById('pp-rename-input'); inp.value=owner.nom_perso||''; inp.focus();
       };
-    } else { act.innerHTML='<button class="btn-taken">🔒 Possédée par '+owner.joueur+'</button>'; }
+    } else { act.innerHTML='<button class="btn-taken" id="do-voir-profil" style="cursor:pointer;">🔒 Possédée par '+owner.joueur+' — voir profil</button>';
+      const b=document.getElementById('do-voir-profil'); if(b) b.onclick=()=>ouvrirProfil(owner.joueur); }
     document.getElementById('popup').style.display='block';
   }
   // gestion des boutons de renommage (une seule fois)
