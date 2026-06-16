@@ -41,6 +41,25 @@
   #btn-planetes{position:fixed;bottom:42px;right:118px;z-index:6;font-size:12px;color:#9bb8ff;background:rgba(10,20,35,0.8);border:1px solid #2a3a5a;padding:7px 12px;border-radius:8px;cursor:pointer;}
   #btn-empire{position:fixed;bottom:42px;right:235px;z-index:6;font-size:12px;color:#9bd5a0;background:rgba(10,25,18,0.8);border:1px solid #2a5a3a;padding:7px 12px;border-radius:8px;cursor:pointer;}
   #panel-empire{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;max-width:90vw;max-height:80vh;z-index:9;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:16px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.6);}
+  #panel-construction{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:380px;max-width:92vw;max-height:82vh;z-index:9;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:16px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.6);}
+  #panel-construction h3{font-size:14px;color:#9bd5a0;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+  #constr-content{overflow-y:auto;}
+  .bat-encours{background:rgba(127,200,150,0.1);border:1px solid rgba(127,200,150,0.3);border-radius:10px;padding:10px;margin-bottom:12px;}
+  .bat-encours .bar{height:7px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden;margin-top:6px;}
+  .bat-encours .bar-fill{height:100%;background:linear-gradient(90deg,#3aa56a,#7ade9b);border-radius:4px;transition:width 1s linear;}
+  .bat-branche{font-size:9.5px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin:12px 0 6px;}
+  .bat-item{display:flex;align-items:center;gap:10px;padding:9px;border-radius:10px;margin-bottom:6px;background:rgba(255,255,255,0.03);border:1px solid transparent;}
+  .bat-item.verrouille{opacity:0.5;}
+  .bat-icone{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0;}
+  .bat-info{flex:1;min-width:0;}
+  .bat-nom{font-size:13px;color:#fff;font-weight:500;display:flex;align-items:center;gap:6px;}
+  .bat-niv{font-size:10px;color:#9bd5a0;background:rgba(155,213,160,0.15);padding:1px 6px;border-radius:5px;}
+  .bat-desc{font-size:10.5px;color:#7a8aa5;margin-top:1px;}
+  .bat-cout{font-size:10px;color:#bfc8d8;margin-top:3px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+  .bat-cout .manque{color:#ff9b7a;}
+  .bat-btn{padding:7px 12px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;}
+  .bat-btn:disabled{background:rgba(255,255,255,0.08);color:#5b6b8a;cursor:not-allowed;}
+  .bat-btn.max{background:rgba(155,184,255,0.12);color:#9bb8ff;}
   #panel-profil{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:92vw;max-height:85vh;z-index:10;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:18px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.7);}
   #panel-profil h3{font-size:14px;color:#9bb8ff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
   #profil-content{overflow-y:auto;}
@@ -127,11 +146,15 @@
     <h3>◊ Mon Empire <span class="pp-close2" id="empire-close">✕</span></h3>
     <div id="empire-content"></div>
   </div>
+  <div id="panel-construction">
+    <h3 id="constr-titre">Gestion de planète <span class="pp-close2" id="constr-close">✕</span></h3>
+    <div id="constr-content"></div>
+  </div>
   <div id="panel-profil">
     <h3 id="profil-titre">Profil <span class="pp-close2" id="profil-close">✕</span></h3>
     <div id="profil-content"></div>
   </div>
-  <div id="version"><span id="ver">v2.0</span> · comptes sécurisés + profils + emblèmes</div>
+  <div id="version"><span id="ver">v2.1</span> · construction de bâtiments + arbre technologique</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -450,6 +473,22 @@ function elemPill(k,size){
 }
 let STOCK={};        // ressource -> quantite (au dernier appel serveur)
 let PROD_H={};       // ressource -> production/heure
+// metadonnees batiments cote client (affichage)
+const BAT_META={
+  commandement:{nom:"Centre de commandement",desc:"Cœur de la planète. Débloque les paliers.",branche:"central",col:"#888780"},
+  extracteur:{nom:"Extracteur",desc:"+15% production par niveau.",branche:"extraction",col:"#639922"},
+  raffinerie:{nom:"Raffinerie",desc:"Affine en métaux rares.",branche:"extraction",col:"#639922"},
+  centrale:{nom:"Centrale énergétique",desc:"Produit l'énergie des bâtiments.",branche:"energie",col:"#BA7517"},
+  collecteur:{nom:"Collecteur solaire",desc:"Énergie en grande quantité.",branche:"energie",col:"#BA7517"},
+  entrepot:{nom:"Entrepôt",desc:"+capacité de stockage.",branche:"stockage",col:"#378ADD"},
+  caserne:{nom:"Caserne orbitale",desc:"Défense planétaire.",branche:"militaire",col:"#D4537E"},
+  laboratoire:{nom:"Laboratoire",desc:"Recherche avancée.",branche:"avance",col:"#7F77DD"},
+  chantier:{nom:"Chantier spatial",desc:"Construit les vaisseaux (à venir).",branche:"avance",col:"#D85A30"},
+  arsenal:{nom:"Arsenal stellaire",desc:"Flottes de guerre.",branche:"avance",col:"#D85A30"}
+};
+const BAT_ORDRE=['commandement','extracteur','raffinerie','centrale','collecteur','entrepot','caserne','laboratoire','chantier','arsenal'];
+let BAT_PLANETE=null;   // etat des batiments de la planete ouverte
+let BAT_ADDR_OUVERTE=null;
 let stockTimestamp=0; // quand on a recu le stock
 async function chargerStock(){
   if(!MON_PSEUDO) return;
@@ -698,7 +737,8 @@ function demarrerJeu(){
       document.getElementById('do-colo').onclick=async()=>{ act.innerHTML='<button class="btn-colo" disabled>Colonisation...</button>';
         const res=await coloniser(p.addr); if(res.ok){ chargerStock(); montrerPopup(p); majPanneauPlanetes(); } else { act.innerHTML='<button class="btn-taken">'+res.msg+'</button>'; setTimeout(()=>montrerPopup(p),1500); } };
     } else if(owner.joueur===MON_PSEUDO){
-      act.innerHTML='<button class="btn-mine" id="do-rename">✎ Renommer</button>';
+      act.innerHTML='<div style="display:flex;gap:6px;"><button class="btn-mine" id="do-gerer" style="flex:1;background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;">⚒ Gérer</button><button class="btn-mine" id="do-rename" style="flex:1;">✎ Renommer</button></div>';
+      document.getElementById('do-gerer').onclick=()=>{ document.getElementById('popup').style.display='none'; ouvrirConstruction(p.addr); };
       document.getElementById('do-rename').onclick=()=>{
         const rn=document.getElementById('pp-rename'); rn.style.display='block';
         const inp=document.getElementById('pp-rename-input'); inp.value=owner.nom_perso||''; inp.focus();
@@ -806,6 +846,92 @@ function demarrerJeu(){
   document.getElementById('empire-close').addEventListener('click',()=>{ document.getElementById('panel-empire').style.display='none'; empireOuvert=false; });
   // rafraîchir l'empire en direct s'il est ouvert
   setInterval(()=>{ if(empireOuvert) majEmpire(); },1000);
+
+  // ============================================================
+  //  PANNEAU CONSTRUCTION DE BATIMENTS
+  // ============================================================
+  let constrOuvert=false;
+  async function ouvrirConstruction(addr){
+    BAT_ADDR_OUVERTE=addr; constrOuvert=true;
+    document.getElementById('panel-construction').style.display='flex';
+    const m=/^S(\d+)-P(\d+)$/.exec(addr); const sysIdx=parseInt(m[1],10),pIdx=parseInt(m[2],10);
+    const sys=SYS_BY_IDX[sysIdx]; ensurePlanets(sys); const p=sys.planets[pIdx];
+    document.getElementById('constr-titre').innerHTML='⚒ '+nomAffiche(p)+' <span class="pp-close2" id="constr-close">✕</span>';
+    document.getElementById('constr-close').onclick=()=>{ document.getElementById('panel-construction').style.display='none'; constrOuvert=false; };
+    await chargerBatiments(addr); majConstruction();
+  }
+  async function chargerBatiments(addr){
+    try{ const r=await fetch('/api/batiments?addr='+encodeURIComponent(addr)); BAT_PLANETE=await r.json(); }
+    catch(e){ BAT_PLANETE=null; }
+  }
+  function coutLisible(cout){
+    if(!cout) return '';
+    return Object.keys(cout).map(r=>{ const m=RES_META[r]; const ai=STOCK[r]||0; const manque=ai<cout[r];
+      return '<span class="'+(manque?'manque':'')+'">'+elemPill(r,16)+' '+Math.round(cout[r])+'</span>'; }).join(' ');
+  }
+  function tempsLisible(sec){ if(sec<60) return sec+'s'; if(sec<3600) return Math.floor(sec/60)+'min'; return Math.floor(sec/3600)+'h'+Math.floor((sec%3600)/60)+'min'; }
+  function majConstruction(){
+    const el=document.getElementById('constr-content'); if(!el||!BAT_PLANETE) return;
+    let html='';
+    // construction en cours
+    if(BAT_PLANETE.construction){
+      const c=BAT_PLANETE.construction; const meta=BAT_META[c.code];
+      const fin=new Date(c.fin).getTime(); const reste=Math.max(0,fin-Date.now());
+      const total=galaxyTempsClient(c.code,c.niveau_vise)*1000; const pct=Math.max(0,Math.min(100,100*(1-reste/total)));
+      html+='<div class="bat-encours"><div style="display:flex;justify-content:space-between;align-items:center;">'+
+        '<span style="font-size:13px;color:#fff;font-weight:500;">⚒ '+meta.nom+' → niv '+c.niveau_vise+'</span>'+
+        '<span style="font-size:12px;color:#9bd5a0;">'+tempsLisible(Math.ceil(reste/1000))+'</span></div>'+
+        '<div class="bar"><div class="bar-fill" style="width:'+pct.toFixed(1)+'%"></div></div></div>';
+    }
+    // liste des batiments par branche
+    const branches={extraction:'Extraction',energie:'Énergie',stockage:'Stockage',militaire:'Militaire',avance:'Avancé',central:'Commandement'};
+    const parBranche={};
+    for(const code of BAT_ORDRE){ const m=BAT_META[code]; if(!parBranche[m.branche]) parBranche[m.branche]=[]; parBranche[m.branche].push(code); }
+    const ordreBranches=['central','extraction','energie','stockage','militaire','avance'];
+    for(const br of ordreBranches){ if(!parBranche[br]) continue;
+      html+='<div class="bat-branche">'+branches[br]+'</div>';
+      for(const code of parBranche[br]){ const meta=BAT_META[code]; const d=BAT_PLANETE.dispo[code]; if(!d) continue;
+        const enCours=BAT_PLANETE.construction&&BAT_PLANETE.construction.code===code;
+        const verr=!d.prerequisOk; const max=d.niveau>=d.max;
+        // peut-on payer ?
+        let payable=true; if(d.coutProchain){ for(const r in d.coutProchain){ if((STOCK[r]||0)<d.coutProchain[r]) payable=false; } }
+        html+='<div class="bat-item'+(verr?' verrouille':'')+'">'+
+          '<div class="bat-icone" style="background:'+meta.col+'22;color:'+meta.col+';border:1px solid '+meta.col+'66;">'+meta.nom.charAt(0)+'</div>'+
+          '<div class="bat-info"><div class="bat-nom">'+meta.nom+(d.niveau>0?' <span class="bat-niv">niv '+d.niveau+'</span>':'')+'</div>'+
+          '<div class="bat-desc">'+meta.desc+'</div>'+
+          (max?'':'<div class="bat-cout">'+coutLisible(d.coutProchain)+' · ⏱ '+tempsLisible(d.tempsProchain)+'</div>')+
+          (verr?'<div class="bat-desc" style="color:#ff9b7a;">Prérequis manquant</div>':'')+'</div>';
+        if(max) html+='<button class="bat-btn max" disabled>Max</button>';
+        else if(enCours) html+='<button class="bat-btn" disabled>En cours</button>';
+        else html+='<button class="bat-btn" data-code="'+code+'" '+((verr||!payable||BAT_PLANETE.construction)?'disabled':'')+'>'+(d.niveau>0?'Améliorer':'Construire')+'</button>';
+        html+='</div>';
+      }
+    }
+    el.innerHTML=html;
+    // brancher les boutons
+    el.querySelectorAll('.bat-btn[data-code]').forEach(b=>{ b.onclick=()=>lancerConstruction(b.dataset.code); });
+  }
+  function galaxyTempsClient(code,niv){
+    // reproduit tempsBatiment cote client pour la barre (approx, le serveur fait foi)
+    const T={commandement:[60,1.8],extracteur:[45,1.7],raffinerie:[180,1.75],centrale:[50,1.7],collecteur:[150,1.75],entrepot:[40,1.65],caserne:[240,1.8],laboratoire:[300,1.8],chantier:[360,1.8],arsenal:[600,1.85]};
+    const t=T[code]||[60,1.7]; return Math.round(t[0]*Math.pow(t[1],niv-1));
+  }
+  async function lancerConstruction(code){
+    if(!MON_JETON||!BAT_ADDR_OUVERTE) return;
+    try{ const r=await fetch('/api/construire',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON,addr:BAT_ADDR_OUVERTE,code})});
+      const d=await r.json();
+      if(d.succes){ await chargerStock(); await chargerBatiments(BAT_ADDR_OUVERTE); majConstruction(); }
+      else { alert(d.message||"Construction impossible"); }
+    }catch(e){ alert("Serveur injoignable"); }
+  }
+  window.ouvrirConstruction=ouvrirConstruction;
+  // rafraîchir la barre de progression + recharger à la fin
+  setInterval(async ()=>{ if(!constrOuvert||!BAT_PLANETE) return;
+    if(BAT_PLANETE.construction){ const fin=new Date(BAT_PLANETE.construction.fin).getTime();
+      if(Date.now()>=fin){ await chargerStock(); await chargerBatiments(BAT_ADDR_OUVERTE); }
+    }
+    majConstruction();
+  },1000);
 
   window.allerAuHome=function(){
     if(!MON_HOME) return;
