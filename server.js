@@ -32,6 +32,29 @@ async function preparerBase() {
       vu_le TIMESTAMP DEFAULT NOW()
     )
   `);
+  // --- AUTHENTIFICATION & PROFIL : colonnes ajoutees en douceur ---
+  await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS mdp_hash TEXT`);
+  await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS nom_empire TEXT`);
+  await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS couleur TEXT`);
+  await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS bio TEXT`);
+  await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS embleme TEXT`); // JSON : {forme,symbole,c1,c2}
+  // sessions : jeton -> joueur
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      jeton TEXT PRIMARY KEY,
+      joueur TEXT NOT NULL,
+      cree_le TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  // titres debloques : joueur + code du titre
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS titres (
+      joueur TEXT NOT NULL,
+      code TEXT NOT NULL,
+      obtenu_le TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (joueur, code)
+    )
+  `);
   // table de possession : une planete (adresse) appartient a un joueur
   await pool.query(`
     CREATE TABLE IF NOT EXISTS possessions (
@@ -55,7 +78,7 @@ async function preparerBase() {
       PRIMARY KEY (joueur, ressource)
     )
   `);
-  console.log("Base prete : tables 'joueurs' et 'possessions' OK");
+  console.log("Base prete : joueurs, sessions, titres, possessions, stocks OK");
 }
 
 // helper : une adresse est-elle deja occupee ?
@@ -65,44 +88,110 @@ async function estOccupee(addr){
 }
 
 // ============================================================
-//  CONNEXION : enregistre le joueur ET lui attribue une planete
-//  d'origine s'il n'en a pas encore.
+//  AUTHENTIFICATION
 // ============================================================
+const auth = require("./auth");
+
+// attribue une planete d'origine si le joueur n'en a pas
+async function assurerHome(pseudo) {
+  let home = await pool.query(
+    "SELECT addr FROM possessions WHERE joueur=$1 AND origine=TRUE LIMIT 1", [pseudo]
+  );
+  if (home.rows.length > 0) return home.rows[0].addr;
+  const prises = new Set((await pool.query("SELECT addr FROM possessions")).rows.map(r => r.addr));
+  const homeAddr = galaxy.homeworldFor(pseudo, (a) => prises.has(a));
+  if (homeAddr) {
+    await pool.query(
+      "INSERT INTO possessions (addr, joueur, origine) VALUES ($1,$2,TRUE) ON CONFLICT (addr) DO NOTHING",
+      [homeAddr, pseudo]
+    );
+  }
+  return homeAddr;
+}
+
+// debloque un titre (silencieux si deja obtenu)
+async function debloquerTitre(pseudo, code) {
+  await pool.query(
+    "INSERT INTO titres (joueur, code) VALUES ($1,$2) ON CONFLICT DO NOTHING", [pseudo, code]
+  );
+}
+
+// cree une session et renvoie le jeton
+async function creerSession(pseudo) {
+  const jeton = auth.genererJeton();
+  await pool.query("INSERT INTO sessions (jeton, joueur) VALUES ($1,$2)", [jeton, pseudo]);
+  return jeton;
+}
+
+// resout un jeton -> pseudo (ou null)
+async function joueurDeSession(jeton) {
+  if (!jeton) return null;
+  const r = await pool.query("SELECT joueur FROM sessions WHERE jeton=$1", [jeton]);
+  return r.rows.length ? r.rows[0].joueur : null;
+}
+
+// INSCRIPTION : cree un compte avec mot de passe
+app.post("/api/inscription", async (req, res) => {
+  const pseudo = (req.body.pseudo || "").trim().slice(0, 20);
+  const mdp = (req.body.motdepasse || "");
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Pseudo trop court (2 caractères min)" });
+  if (!/^[a-zA-Z0-9_\- ]+$/.test(pseudo)) return res.status(400).json({ erreur: "Pseudo : lettres, chiffres, - et _ seulement" });
+  if (mdp.length < 4) return res.status(400).json({ erreur: "Mot de passe trop court (4 caractères min)" });
+  try {
+    const existe = await pool.query("SELECT nom, mdp_hash FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
+    if (existe.rows.length > 0 && existe.rows[0].mdp_hash) {
+      return res.json({ succes: false, message: "Ce pseudo est déjà pris." });
+    }
+    const hash = auth.hacherMotDePasse(mdp);
+    if (existe.rows.length > 0) {
+      await pool.query("UPDATE joueurs SET mdp_hash=$1, vu_le=NOW() WHERE LOWER(nom)=LOWER($2)", [hash, pseudo]);
+    } else {
+      await pool.query("INSERT INTO joueurs (nom, mdp_hash) VALUES ($1,$2)", [pseudo, hash]);
+    }
+    const homeAddr = await assurerHome(pseudo);
+    await debloquerTitre(pseudo, "fondateur");
+    const jeton = await creerSession(pseudo);
+    res.json({ succes: true, pseudo, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// CONNEXION : verifie pseudo + mot de passe
 app.post("/api/connexion", async (req, res) => {
   const pseudo = (req.body.pseudo || "").trim().slice(0, 20);
-  if (pseudo.length < 2) return res.status(400).json({ erreur: "Pseudo trop court" });
+  const mdp = (req.body.motdepasse || "");
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Pseudo invalide" });
   try {
-    await pool.query(
-      `INSERT INTO joueurs (nom, vu_le) VALUES ($1, NOW())
-       ON CONFLICT (nom) DO UPDATE SET vu_le = NOW()`,
-      [pseudo]
-    );
-    // a-t-il deja une planete d'origine ?
-    let home = await pool.query(
-      "SELECT addr FROM possessions WHERE joueur=$1 AND origine=TRUE LIMIT 1",
-      [pseudo]
-    );
-    let homeAddr;
-    if (home.rows.length === 0) {
-      // on lui en attribue une (deterministe, habitable, libre)
-      // estOccupee version synchrone-ish : on charge la liste des adresses prises
-      const prises = new Set(
-        (await pool.query("SELECT addr FROM possessions")).rows.map(r => r.addr)
-      );
-      homeAddr = galaxy.homeworldFor(pseudo, (a) => prises.has(a));
-      if (homeAddr) {
-        await pool.query(
-          "INSERT INTO possessions (addr, joueur, origine) VALUES ($1,$2,TRUE) ON CONFLICT (addr) DO NOTHING",
-          [homeAddr, pseudo]
-        );
-      }
-    } else {
-      homeAddr = home.rows[0].addr;
+    const r = await pool.query("SELECT nom, mdp_hash FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
+    if (r.rows.length === 0) return res.json({ succes: false, message: "Compte introuvable.", inconnu: true });
+    const j = r.rows[0];
+    if (!j.mdp_hash) return res.json({ succes: false, message: "Ce compte n'a pas de mot de passe. Définis-en un.", besoinMdp: true });
+    if (!auth.verifierMotDePasse(mdp, j.mdp_hash)) {
+      return res.json({ succes: false, message: "Mot de passe incorrect." });
     }
-    res.json({ pseudo, graine: galaxy.GRAINE_UNIVERS, home: homeAddr });
-  } catch (e) {
-    res.status(500).json({ erreur: e.message });
-  }
+    await pool.query("UPDATE joueurs SET vu_le=NOW() WHERE nom=$1", [j.nom]);
+    const homeAddr = await assurerHome(j.nom);
+    const jeton = await creerSession(j.nom);
+    res.json({ succes: true, pseudo: j.nom, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// SESSION : reconnexion automatique via jeton
+app.post("/api/session", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.json({ succes: false });
+    await pool.query("UPDATE joueurs SET vu_le=NOW() WHERE nom=$1", [pseudo]);
+    const homeAddr = await assurerHome(pseudo);
+    res.json({ succes: true, pseudo, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// DECONNEXION : supprime la session
+app.post("/api/deconnexion", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  try { await pool.query("DELETE FROM sessions WHERE jeton=$1", [jeton]); res.json({ succes: true }); }
+  catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
 // liste de tous les joueurs (recemment vus)
@@ -258,7 +347,97 @@ app.get("/api/stock", async (req, res) => {
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
-app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.6" }));
+// ============================================================
+//  PROFIL & STATISTIQUES & TITRES
+// ============================================================
+// catalogue des titres et leurs conditions
+const TITRES_DEF = {
+  fondateur:   { nom: "Fondateur", desc: "A fondé son empire", icone: "flag" },
+  explorateur: { nom: "Explorateur", desc: "Possède 3 planètes ou plus", icone: "compass" },
+  batisseur:   { nom: "Bâtisseur", desc: "Possède 5 planètes ou plus", icone: "building" },
+  magnat:      { nom: "Magnat", desc: "Possède 10 planètes ou plus", icone: "crown" },
+  prospecteur: { nom: "Prospecteur", desc: "Détient une ressource exotique", icone: "diamond" },
+  veteran:     { nom: "Vétéran", desc: "Empire fondé il y a plus de 7 jours", icone: "clock" }
+};
+
+// recalcule les titres automatiques d'un joueur
+async function recalcTitres(pseudo) {
+  const poss = await pool.query("SELECT addr FROM possessions WHERE joueur=$1", [pseudo]);
+  const nb = poss.rows.length;
+  if (nb >= 3) await debloquerTitre(pseudo, "explorateur");
+  if (nb >= 5) await debloquerTitre(pseudo, "batisseur");
+  if (nb >= 10) await debloquerTitre(pseudo, "magnat");
+  // ressource exotique ?
+  for (const row of poss.rows) {
+    const prod = galaxy.productionHoraire(row.addr);
+    if (prod.antimatiere || prod.metamateriaux) { await debloquerTitre(pseudo, "prospecteur"); break; }
+  }
+  // anciennete
+  const j = await pool.query("SELECT cree_le FROM joueurs WHERE nom=$1", [pseudo]);
+  if (j.rows.length && (Date.now() - new Date(j.rows[0].cree_le).getTime()) > 7*86400000) {
+    await debloquerTitre(pseudo, "veteran");
+  }
+}
+
+// GET profil d'un joueur (le sien ou un autre)
+app.get("/api/profil", async (req, res) => {
+  const pseudo = (req.query.pseudo || "").trim().slice(0,20);
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Pseudo invalide" });
+  try {
+    const r = await pool.query(
+      "SELECT nom, nom_empire, couleur, bio, embleme, cree_le FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]
+    );
+    if (r.rows.length === 0) return res.status(404).json({ erreur: "Joueur introuvable" });
+    const j = r.rows[0];
+    await recalcTitres(j.nom);
+    const titres = await pool.query("SELECT code, obtenu_le FROM titres WHERE joueur=$1", [j.nom]);
+    const poss = await pool.query("SELECT addr, acquis_le FROM possessions WHERE joueur=$1", [j.nom]);
+    // production totale
+    let prodTotale = 0;
+    for (const row of poss.rows) { const p = galaxy.productionHoraire(row.addr); for (const k in p) prodTotale += p[k]; }
+    res.json({
+      pseudo: j.nom,
+      nom_empire: j.nom_empire || null,
+      couleur: j.couleur || null,
+      bio: j.bio || null,
+      embleme: j.embleme ? JSON.parse(j.embleme) : null,
+      cree_le: j.cree_le,
+      stats: { planetes: poss.rows.length, productionTotale: Math.round(prodTotale) },
+      titres: titres.rows.map(t => ({ code: t.code, ...TITRES_DEF[t.code], obtenu_le: t.obtenu_le })).filter(t => t.nom)
+    });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST mise a jour du profil (authentifie par jeton)
+app.post("/api/profil", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Non authentifié" });
+    const nomEmpire = (req.body.nom_empire || "").trim().slice(0, 30) || null;
+    const couleur = (req.body.couleur || "").trim().slice(0, 7) || null;
+    const bio = (req.body.bio || "").trim().slice(0, 200) || null;
+    let embleme = null;
+    if (req.body.embleme) {
+      const e = req.body.embleme;
+      embleme = JSON.stringify({
+        forme: String(e.forme || "ecu").slice(0,20),
+        symbole: String(e.symbole || "etoile").slice(0,20),
+        c1: String(e.c1 || "#5b9bd5").slice(0,7),
+        c2: String(e.c2 || "#1c3a5a").slice(0,7)
+      });
+    }
+    // validation couleur hex
+    const couleurOk = couleur && /^#[0-9a-fA-F]{6}$/.test(couleur) ? couleur : null;
+    await pool.query(
+      "UPDATE joueurs SET nom_empire=$1, couleur=$2, bio=$3, embleme=COALESCE($4, embleme) WHERE nom=$5",
+      [nomEmpire, couleurOk, bio, embleme, pseudo]
+    );
+    res.json({ succes: true });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.7" }));
 
 preparerBase()
   .then(() => app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`)))
