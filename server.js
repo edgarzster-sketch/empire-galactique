@@ -306,8 +306,10 @@ async function productionEffective(addr) {
   const niv = await niveauxBatiments(addr);
   const nivExtracteur = niv.extracteur || 0;
   const facteur = 1 + nivExtracteur * 0.15;
+  // bilan energetique : si deficit, la production tourne au ralenti
+  const energie = galaxy.bilanEnergie(niv);
   const out = {};
-  for (const r in base) out[r] = base[r] * facteur;
+  for (const r in base) out[r] = base[r] * facteur * energie.rendement;
   return out;
 }
 
@@ -516,6 +518,7 @@ app.get("/api/batiments", async (req, res) => {
     }
     res.json({
       addr, niveaux, dispo,
+      energie: galaxy.bilanEnergie(niveaux),
       construction: enCours.rows.length ? enCours.rows[0] : null
     });
   } catch (e) { res.status(500).json({ erreur: e.message }); }

@@ -356,3 +356,34 @@ module.exports.BATIMENTS = BATIMENTS;
 module.exports.coutBatiment = coutBatiment;
 module.exports.tempsBatiment = tempsBatiment;
 module.exports.prerequisOk = prerequisOk;
+
+// ============================================================
+//  BILAN ENERGETIQUE (v1.0)
+//  Calcule production, consommation et rendement d'une planete
+//  a partir des niveaux de ses batiments.
+//  - centrale : +50 energie/niv ; collecteur : +120 energie/niv
+//  - chaque autre batiment consomme BATIMENTS[code].energie * niveau
+//  Si conso > prod : rendement = prod/conso (les batiments tournent au ralenti)
+// ============================================================
+function bilanEnergie(niveaux) {
+  let production = 30, consommation = 0;  // +30 energie de base gratuite par planete
+  for (const code in niveaux) {
+    const niv = niveaux[code] || 0;
+    if (niv <= 0) continue;
+    const b = BATIMENTS[code];
+    if (!b) continue;
+    if (b.effet && b.effet.type === "energie") {
+      production += b.effet.bonus * niv;
+    } else if (b.energie) {
+      consommation += b.energie * niv;
+    }
+  }
+  // rendement : 1 si on a assez d'energie, sinon ratio (jamais < 0.1 pour eviter le blocage total)
+  let rendement = 1;
+  if (consommation > production && consommation > 0) {
+    rendement = Math.max(0.1, production / consommation);
+  }
+  return { production, consommation, rendement };
+}
+
+module.exports.bilanEnergie = bilanEnergie;
