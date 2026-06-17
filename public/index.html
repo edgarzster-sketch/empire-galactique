@@ -154,7 +154,7 @@
     <h3 id="profil-titre">Profil <span class="pp-close2" id="profil-close">✕</span></h3>
     <div id="profil-content"></div>
   </div>
-  <div id="version"><span id="ver">v2.4</span> · clic sur orbite + menus latéraux</div>
+  <div id="version"><span id="ver">v2.5</span> · énergie contraignante</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -917,6 +917,20 @@ function demarrerJeu(){
         '<div style="flex:1;"><div style="font-size:13px;font-weight:500;color:#fff;">'+meta.nom+' → niv '+c.niveau_vise+'</div>'+
         '<div style="height:7px;background:#ffffff12;border-radius:4px;overflow:hidden;margin-top:7px;"><div style="height:100%;width:'+pct.toFixed(1)+'%;background:linear-gradient(90deg,'+meta.col+'aa,'+meta.col+');border-radius:4px;transition:width 1s linear;"></div></div></div>'+
         '<span style="font-size:12px;color:'+meta.col+';font-weight:500;white-space:nowrap;">'+tempsLisible(Math.ceil(reste/1000))+'</span></div></div>';
+    }
+    // jauge energetique de la planete
+    if(BAT_PLANETE.energie){
+      const en=BAT_PLANETE.energie; const deficit=en.consommation>en.production;
+      const pct=en.production>0?Math.min(100,100*en.consommation/en.production):0;
+      const col=deficit?'#e2554a':(pct>80?'#ef9f27':'#3aa56a');
+      html+='<div style="background:'+(deficit?'#2a1410':'#0d1726')+';border:1px solid '+col+'55;border-radius:12px;padding:11px 13px;margin-bottom:13px;">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">'+
+        '<span style="font-size:12px;color:#cdd6e5;font-weight:500;display:flex;align-items:center;gap:6px;">'+
+        '<svg width="15" height="15" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 9 L13 9 Z" fill="'+col+'" opacity="0.85"/></svg>Énergie</span>'+
+        '<span style="font-size:12px;color:'+col+';font-weight:600;">'+Math.round(en.consommation)+' / '+Math.round(en.production)+'</span></div>'+
+        '<div style="height:8px;background:#ffffff10;border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+pct.toFixed(0)+'%;background:'+col+';border-radius:4px;transition:width 0.5s;"></div></div>'+
+        (deficit?'<div style="font-size:10.5px;color:#ff9b7a;margin-top:6px;">⚠ Déficit énergétique : production ralentie à '+Math.round(en.rendement*100)+'%. Construis une centrale.</div>':'')+
+        '</div>';
     }
     // onglets de categorie
     const onglets=[['extraction','Extraction'],['energie','Énergie'],['stockage','Stockage'],['avance','Avancé']];
