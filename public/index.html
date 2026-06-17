@@ -40,8 +40,8 @@
   #btn-home{position:fixed;bottom:42px;right:10px;z-index:5;font-size:12px;color:#9bd5d0;background:rgba(10,20,35,0.8);border:1px solid #2a4a5a;padding:7px 12px;border-radius:8px;cursor:pointer;}
   #btn-planetes{position:fixed;bottom:42px;right:118px;z-index:6;font-size:12px;color:#9bb8ff;background:rgba(10,20,35,0.8);border:1px solid #2a3a5a;padding:7px 12px;border-radius:8px;cursor:pointer;}
   #btn-empire{position:fixed;bottom:42px;right:235px;z-index:6;font-size:12px;color:#9bd5a0;background:rgba(10,25,18,0.8);border:1px solid #2a5a3a;padding:7px 12px;border-radius:8px;cursor:pointer;}
-  #panel-empire{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:340px;max-width:90vw;max-height:80vh;z-index:9;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:16px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.6);}
-  #panel-construction{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:380px;max-width:92vw;max-height:82vh;z-index:9;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:16px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.6);}
+  #panel-empire{position:fixed;right:14px;top:54px;bottom:54px;width:360px;max-width:calc(100vw - 28px);z-index:9;background:linear-gradient(165deg,rgba(14,20,34,0.985),rgba(8,11,22,0.985));border:1px solid #2c3e5e;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.04);}
+  #panel-construction{position:fixed;right:14px;top:54px;bottom:54px;width:400px;max-width:calc(100vw - 28px);z-index:9;background:linear-gradient(165deg,rgba(14,20,34,0.985),rgba(8,11,22,0.985));border:1px solid #2c3e5e;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.65),inset 0 1px 0 rgba(255,255,255,0.04);}
   #panel-construction h3{font-size:14px;color:#9bd5a0;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
   #constr-content{overflow-y:auto;}
   .bat-encours{background:rgba(127,200,150,0.1);border:1px solid rgba(127,200,150,0.3);border-radius:10px;padding:10px;margin-bottom:12px;}
@@ -60,7 +60,7 @@
   .bat-btn{padding:7px 12px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;}
   .bat-btn:disabled{background:rgba(255,255,255,0.08);color:#5b6b8a;cursor:not-allowed;}
   .bat-btn.max{background:rgba(155,184,255,0.12);color:#9bb8ff;}
-  #panel-profil{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:360px;max-width:92vw;max-height:85vh;z-index:10;background:rgba(8,12,24,0.98);border:1px solid #2a3a5a;border-radius:14px;padding:18px;display:none;flex-direction:column;box-shadow:0 12px 50px rgba(0,0,0,0.7);}
+  #panel-profil{position:fixed;right:14px;top:54px;bottom:54px;width:380px;max-width:calc(100vw - 28px);z-index:10;background:linear-gradient(165deg,rgba(14,20,34,0.985),rgba(8,11,22,0.985));border:1px solid #2c3e5e;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.7),inset 0 1px 0 rgba(255,255,255,0.04);}
   #panel-profil h3{font-size:14px;color:#9bb8ff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;}
   #profil-content{overflow-y:auto;}
   .pf-row{margin-bottom:12px;}
@@ -87,7 +87,7 @@
   .emp-stat{display:flex;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid rgba(255,255,255,0.06);font-size:13px;}
   .emp-stat .v{color:#9bd5a0;font-weight:600;}
   .emp-tier-label{font-size:9px;padding:1px 6px;border-radius:4px;margin-left:6px;}
-  #panel-planetes{position:fixed;left:10px;top:44px;bottom:60px;width:220px;z-index:7;background:rgba(8,12,24,0.96);border:1px solid #2a3a5a;border-radius:12px;padding:10px;display:none;flex-direction:column;}
+  #panel-planetes{position:fixed;left:14px;top:54px;bottom:54px;width:240px;z-index:7;background:linear-gradient(165deg,rgba(14,20,34,0.985),rgba(8,11,22,0.985));border:1px solid #2c3e5e;border-radius:16px;padding:14px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.6),inset 0 1px 0 rgba(255,255,255,0.04);}
   #panel-planetes h3{font-size:12px;color:#9bb8ff;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
   #panel-planetes .pp-close2{cursor:pointer;color:#8a97b5;}
   #liste-mes-planetes{overflow-y:auto;flex:1;}
@@ -154,7 +154,7 @@
     <h3 id="profil-titre">Profil <span class="pp-close2" id="profil-close">✕</span></h3>
     <div id="profil-content"></div>
   </div>
-  <div id="version"><span id="ver">v2.3</span> · icônes bâtiments isométriques</div>
+  <div id="version"><span id="ver">v2.4</span> · clic sur orbite + menus latéraux</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -720,7 +720,23 @@ function demarrerJeu(){
   const LOD_APPROACH=0.35,LOD_SYSTEM=0.8,LOD_FULL=1.6;
   function smooth(a,b,x){ const tt=Math.max(0,Math.min(1,(x-a)/(b-a))); return tt*tt*(3-2*tt); }
   let candidates=[];
-  function planetAtCursor(){ let best=null,bd=Infinity; for(const c of candidates){ const d=Math.hypot(mouse.x-c.px,mouse.y-c.py); const tol=Math.max(16,c.scr+10); if(d<tol&&d<bd){ bd=d; best=c; } } return best; }
+  function planetAtCursor(){
+    // 1) priorite : clic direct sur le disque de la planete
+    let best=null,bd=Infinity;
+    for(const c of candidates){ const d=Math.hypot(mouse.x-c.px,mouse.y-c.py); const tol=Math.max(16,c.scr+10); if(d<tol&&d<bd){ bd=d; best=c; } }
+    if(best) return best;
+    // 2) sinon : clic sur le cercle d'orbite (on prend l'orbite la plus proche)
+    let bestO=null,bdO=14;  // tolerance 14px autour du trait d'orbite
+    for(const c of candidates){ if(!c.orbA||c.orbA<6) continue;
+      // distance au point de l'ellipse le plus proche, dans la direction du curseur
+      const dx=mouse.x-c.orbCx, dy=mouse.y-c.orbCy;
+      const ang=Math.atan2(dy,dx);
+      const ex=c.orbCx+Math.cos(ang)*c.orbA, ey=c.orbCy+Math.sin(ang)*c.orbB;
+      const d=Math.hypot(mouse.x-ex, mouse.y-ey);
+      if(d<bdO){ bdO=d; bestO=c; }
+    }
+    return bestO;
+  }
 
   function densBar(d,tier){ const col=TIER_COL[tier]; let s=''; for(let i=0;i<10;i++) s+='<span style="display:inline-block;width:5px;height:11px;margin-right:1px;border-radius:1px;background:'+(i<d?col:'rgba(255,255,255,0.1)')+';"></span>'; return s; }
   function nomAffiche(p){ const o=POSSESSIONS[p.addr]; return (o&&o.nom_perso)?o.nom_perso:p.name; }
@@ -1014,7 +1030,7 @@ function demarrerJeu(){
             for(const a of sys._belt){ const ang=a.a0+(2*Math.PI/a.period)*t; const wx=sys.x+Math.cos(ang)*a.rad,wy=sys.y+Math.sin(ang)*a.rad; const pp=w2s(wx,wy); if(pp.x<-20||pp.x>W+20||pp.y<-20||pp.y>H+20) continue; const c=a.tone>0.5?'200,190,170':'150,140,125'; ctx.fillStyle='rgba('+c+','+(a.bright*fS).toFixed(2)+')'; ctx.beginPath(); ctx.arc(pp.x,pp.y,Math.max(0.4,a.size*cam.zoom*0.5),0,6.28); ctx.fill(); } }
           if(fS>0.2){ for(const p of sys.planets){ const a=p.a*cam.zoom,b=a*Math.sqrt(1-p.e*p.e); const cxOrb=sp.x-p.a*p.e*cam.zoom; const dO=Math.abs(Math.hypot(mouse.x-cxOrb,mouse.y-sp.y)-a); const near=dO<14&&!mouse.dragged; ctx.beginPath(); ctx.ellipse(cxOrb,sp.y,a,b,0,0,6.28); ctx.strokeStyle='rgba(150,170,220,'+((near?0.3:0.1)*fS).toFixed(2)+')'; ctx.lineWidth=near?1.5:1; ctx.stroke(); } }
           si=drawStar(sp,sys,fA,fS,bs,t);
-          const drawn=sys.planets.map(p=>{ const loc=planetLocal(p,t); return {p,px:sp.x+loc.x*cam.zoom,py:sp.y+loc.y*cam.zoom,scr:p.size*cam.zoom*0.5}; }).sort((a,b)=>a.py-b.py);
+          const drawn=sys.planets.map(p=>{ const loc=planetLocal(p,t); const a=p.a*cam.zoom,b=a*Math.sqrt(1-p.e*p.e); const cxOrb=sp.x-p.a*p.e*cam.zoom; return {p,px:sp.x+loc.x*cam.zoom,py:sp.y+loc.y*cam.zoom,scr:p.size*cam.zoom*0.5,orbCx:cxOrb,orbCy:sp.y,orbA:a,orbB:b}; }).sort((a,b)=>a.py-b.py);
           for(const it of drawn){ if(it.scr>1.2) drawDetailedPlanet(it.p,it.px,it.py,it.scr,sp.x,sp.y,t,fS); else { ctx.globalAlpha=fS; ctx.fillStyle=it.p.def.water||'rgba('+(it.p.def.atmo||'150,150,150')+',1)'; ctx.beginPath(); ctx.arc(it.px,it.py,Math.max(1,it.scr),0,6.28); ctx.fill(); ctx.globalAlpha=1;
               const owner=POSSESSIONS[it.p.addr]; if(owner){ ctx.strokeStyle=couleurJoueur(owner.joueur); ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(it.px,it.py,Math.max(3,it.scr+2),0,6.28); ctx.stroke(); } }
             if(fS>0.4) candidates.push(it);
