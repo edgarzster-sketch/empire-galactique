@@ -118,7 +118,21 @@ async function preparerBase() {
       fin TIMESTAMPTZ NOT NULL
     )
   `);
-  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions, vaisseaux, chantiers OK");
+  // flottes en mouvement entre deux systemes
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS flottes (
+      id SERIAL PRIMARY KEY,
+      joueur TEXT NOT NULL,
+      origine TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      composition TEXT NOT NULL,
+      mission TEXT DEFAULT 'transit',
+      depart TIMESTAMPTZ DEFAULT NOW(),
+      arrivee TIMESTAMPTZ NOT NULL,
+      traitee BOOLEAN DEFAULT FALSE
+    )
+  `);
+  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions, vaisseaux, chantiers, flottes OK");
 }
 
 // helper : une adresse est-elle deja occupee ?
@@ -716,7 +730,137 @@ app.post("/api/produire", async (req, res) => {
   } finally { client.release(); }
 });
 
-app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.9" }));
+// ============================================================
+//  FLOTTES EN MOUVEMENT (etape 3 : deplacement)
+// ============================================================
+// traite les flottes arrivees : pour l'instant, depot des vaisseaux a destination
+// si la planete appartient au joueur (ou est libre et qu'il a un colonisateur).
+// Le combat/conquete viendra a l'etape 4.
+async function traiterArrivees(joueur) {
+  const arrivees = await pool.query(
+    "SELECT * FROM flottes WHERE joueur=$1 AND traitee=FALSE AND arrivee <= NOW()", [joueur]
+  );
+  for (const f of arrivees.rows) {
+    const compo = JSON.parse(f.composition);
+    const destSys = galaxy.parseAddr(f.destination);
+    // a qui appartient la planete destination ?
+    const poss = await pool.query("SELECT joueur FROM possessions WHERE addr=$1", [f.destination]);
+    const proprio = poss.rows.length ? poss.rows[0].joueur : null;
+
+    if (proprio === f.joueur) {
+      // planete amie : la flotte se pose, on depose les vaisseaux
+      for (const type in compo) {
+        await pool.query(
+          `INSERT INTO vaisseaux (addr, type, nombre) VALUES ($1,$2,$3)
+           ON CONFLICT (addr, type) DO UPDATE SET nombre = vaisseaux.nombre + $3`,
+          [f.destination, type, compo[type]]
+        );
+      }
+      await pool.query("UPDATE flottes SET traitee=TRUE WHERE id=$1", [f.id]);
+    } else if (!proprio && compo.colonisateur > 0) {
+      // planete libre + colonisateur : on colonise
+      await pool.query(
+        "INSERT INTO possessions (addr, joueur, origine) VALUES ($1,$2,FALSE) ON CONFLICT (addr) DO NOTHING",
+        [f.destination, f.joueur]
+      );
+      // depose les vaisseaux restants (le colonisateur est consomme)
+      const restants = Object.assign({}, compo); restants.colonisateur--;
+      for (const type in restants) {
+        if (restants[type] <= 0) continue;
+        await pool.query(
+          `INSERT INTO vaisseaux (addr, type, nombre) VALUES ($1,$2,$3)
+           ON CONFLICT (addr, type) DO UPDATE SET nombre = vaisseaux.nombre + $3`,
+          [f.destination, type, restants[type]]
+        );
+      }
+      await pool.query("UPDATE flottes SET traitee=TRUE, mission='colonisation' WHERE id=$1", [f.id]);
+    } else {
+      // planete ennemie ou libre sans colonisateur : a l'etape 4 (combat).
+      // pour l'instant la flotte fait demi-tour et rentre a l'origine.
+      const compoStr = f.composition;
+      const vit = galaxy.vitesseFlotte(compo);
+      const oa = galaxy.parseAddr(f.origine), od = galaxy.parseAddr(f.destination);
+      const duree = galaxy.dureeTrajet(od.sysIdx, oa.sysIdx, vit) || 120;
+      await pool.query(
+        "UPDATE flottes SET origine=$1, destination=$2, depart=NOW(), arrivee=NOW() + ($3 || ' seconds')::interval, mission='retour' WHERE id=$4",
+        [f.destination, f.origine, duree, f.id]
+      );
+    }
+  }
+}
+
+// GET flottes en mouvement du joueur (pour affichage sur la carte)
+app.get("/api/flottes", async (req, res) => {
+  const jeton = (req.query.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    await traiterArrivees(pseudo);
+    const r = await pool.query(
+      "SELECT id, origine, destination, composition, mission, depart, arrivee FROM flottes WHERE joueur=$1 AND traitee=FALSE ORDER BY arrivee", [pseudo]
+    );
+    const flottes = r.rows.map(f => ({
+      id: f.id, origine: f.origine, destination: f.destination,
+      composition: JSON.parse(f.composition), mission: f.mission,
+      depart: f.depart, arrivee: f.arrivee
+    }));
+    res.json({ flottes });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST envoyer une flotte d'une planete vers un systeme/planete
+app.post("/api/envoyer", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  const origine = (req.body.origine || "").trim();
+  const destination = (req.body.destination || "").trim();
+  const composition = req.body.composition || {};
+  if (!galaxy.parseAddr(origine) || !galaxy.parseAddr(destination)) return res.status(400).json({ erreur: "Invalid address" });
+  if (origine === destination) return res.json({ succes: false, message: "Origin and destination are identical." });
+  const client = await pool.connect();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    await client.query("BEGIN");
+    // la planete d'origine appartient-elle au joueur ?
+    const poss = await client.query("SELECT joueur FROM possessions WHERE addr=$1 FOR UPDATE", [origine]);
+    if (!poss.rows.length || poss.rows[0].joueur !== pseudo) {
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "The origin planet does not belong to you." });
+    }
+    // verifie et debite les vaisseaux disponibles
+    let totalEnvoye = 0;
+    for (const type in composition) {
+      const n = Math.max(0, parseInt(composition[type], 10) || 0);
+      if (n <= 0) { delete composition[type]; continue; }
+      if (!galaxy.VAISSEAUX[type]) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Unknown ship type." }); }
+      const dispo = await client.query("SELECT nombre FROM vaisseaux WHERE addr=$1 AND type=$2", [origine, type]);
+      const q = dispo.rows.length ? dispo.rows[0].nombre : 0;
+      if (q < n) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Not enough " + type + "s available." }); }
+      composition[type] = n; totalEnvoye += n;
+    }
+    if (totalEnvoye <= 0) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "No ships selected." }); }
+    // debite les vaisseaux de la planete (lecture+ecriture pour compat maximale)
+    for (const type in composition) {
+      const cur = await client.query("SELECT nombre FROM vaisseaux WHERE addr=$1 AND type=$2", [origine, type]);
+      const q = cur.rows.length ? cur.rows[0].nombre : 0;
+      await client.query("UPDATE vaisseaux SET nombre=$1 WHERE addr=$2 AND type=$3", [Math.max(0, q - composition[type]), origine, type]);
+    }
+    // calcule la duree du trajet
+    const oa = galaxy.parseAddr(origine), od = galaxy.parseAddr(destination);
+    const vit = galaxy.vitesseFlotte(composition);
+    const duree = galaxy.dureeTrajet(oa.sysIdx, od.sysIdx, vit) || 120;
+    const r = await client.query(
+      "INSERT INTO flottes (joueur, origine, destination, composition, mission, arrivee) VALUES ($1,$2,$3,$4,'transit', NOW() + ($5 || ' seconds')::interval) RETURNING id",
+      [pseudo, origine, destination, JSON.stringify(composition), duree]
+    );
+    await client.query("COMMIT");
+    res.json({ succes: true, id: r.rows[0].id, duree });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(()=>{});
+    res.status(500).json({ erreur: e.message });
+  } finally { client.release(); }
+});
+
+app.get("/sante", (req, res) => res.json({ statut: "ok", version: "1.0" }));
 
 preparerBase()
   .then(() => app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`)))

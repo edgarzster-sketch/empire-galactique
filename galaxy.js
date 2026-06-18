@@ -538,3 +538,38 @@ function resoudreCombat(attaquant, defenseur, defenseBonus) {
 }
 
 module.exports.resoudreCombat = resoudreCombat;
+
+// ============================================================
+//  TRAJETS DE FLOTTES (v1.0)
+//  Calcule la distance entre deux systemes et la duree du voyage.
+//  Vitesse intermediaire : trajets de quelques minutes a ~12 min.
+// ============================================================
+// coordonnees x,y d'un systeme par son index
+function coordSysteme(sysIdx) {
+  const sys = genAllSystems()[sysIdx];
+  return sys ? { x: sys.x, y: sys.y } : null;
+}
+
+// distance euclidienne entre deux systemes (par index)
+function distanceSystemes(idxA, idxB) {
+  const a = coordSysteme(idxA), b = coordSysteme(idxB);
+  if (!a || !b) return null;
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// duree d'un trajet en secondes, selon distance et vitesse de la flotte.
+// vitesseFlotte est en "unites/heure-jeu" ; on calibre pour un rythme
+// intermediaire : ~2 min pour des systemes proches, ~12 min pour tres loin.
+function dureeTrajet(idxA, idxB, vitesseFlotte) {
+  const d = distanceSystemes(idxA, idxB);
+  if (d === null) return null;
+  // base : 90s incompressibles (preparation/decollage) + distance/vitesse
+  // facteur calibre : GALAXY_R=140000, vitesse typique 800-1400
+  const v = vitesseFlotte || 1000;
+  const secondes = 90 + (d / v) * 4.5;
+  return Math.round(Math.min(secondes, 1500)); // plafond 25 min
+}
+
+module.exports.coordSysteme = coordSysteme;
+module.exports.distanceSystemes = distanceSystemes;
+module.exports.dureeTrajet = dureeTrajet;
