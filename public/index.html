@@ -115,46 +115,46 @@
 <body>
 <div id="connexion">
   <h1>EMPIRE GALACTIQUE</h1>
-  <p>Conquête spatiale · univers persistant</p>
+  <p>Space conquest · persistent universe</p>
   <div id="auth-tabs">
-    <button id="tab-connexion" class="auth-tab actif">Se connecter</button>
-    <button id="tab-inscription" class="auth-tab">Créer un compte</button>
+    <button id="tab-connexion" class="auth-tab actif">Log in</button>
+    <button id="tab-inscription" class="auth-tab">Sign up</button>
   </div>
   <div id="auth-form">
-    <input id="pseudo" type="text" placeholder="Pseudo de commandant" maxlength="20" autocomplete="off">
-    <input id="motdepasse" type="password" placeholder="Mot de passe" maxlength="60" autocomplete="off">
-    <button id="entrer">Entrer dans la galaxie</button>
+    <input id="pseudo" type="text" placeholder="Commander username" maxlength="20" autocomplete="off">
+    <input id="motdepasse" type="password" placeholder="Password" maxlength="60" autocomplete="off">
+    <button id="entrer">Enter the galaxy</button>
   </div>
   <div id="msg"></div>
 </div>
 <div id="jeu" style="display:none">
   <canvas id="sky"></canvas>
-  <div id="hud"><span class="pastille" id="hud-col"></span>Commandant <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profil</span></div>
+  <div id="hud"><span class="pastille" id="hud-col"></span>Commander <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profile</span></div>
   <div id="bandeau-stock"></div>
   <div id="scale-badge">Galaxie</div>
   <div id="perf-badge"></div>
-  <div id="joueurs-panel"><h4>Commandants</h4><div id="liste-joueurs">—</div></div>
+  <div id="joueurs-panel"><h4>Commanders</h4><div id="liste-joueurs">—</div></div>
   <div id="info"></div>
-  <div id="btn-home">⌂ Ma planète</div>
-  <div id="btn-planetes">☰ Mes planètes</div>
+  <div id="btn-home">⌂ My planet</div>
+  <div id="btn-planetes">☰ My planets</div>
   <div id="btn-empire">◊ Empire</div>
   <div id="panel-planetes">
-    <h3>Mes planètes <span class="pp-close2" id="panel-close">✕</span></h3>
+    <h3>My planets <span class="pp-close2" id="panel-close">✕</span></h3>
     <div id="liste-mes-planetes"></div>
   </div>
   <div id="panel-empire">
-    <h3>◊ Mon Empire <span class="pp-close2" id="empire-close">✕</span></h3>
+    <h3>◊ My Empire <span class="pp-close2" id="empire-close">✕</span></h3>
     <div id="empire-content"></div>
   </div>
   <div id="panel-construction">
-    <h3 id="constr-titre">Gestion de planète <span class="pp-close2" id="constr-close">✕</span></h3>
+    <h3 id="constr-titre">Planet management <span class="pp-close2" id="constr-close">✕</span></h3>
     <div id="constr-content"></div>
   </div>
   <div id="panel-profil">
-    <h3 id="profil-titre">Profil <span class="pp-close2" id="profil-close">✕</span></h3>
+    <h3 id="profil-titre">Profile <span class="pp-close2" id="profil-close">✕</span></h3>
     <div id="profil-content"></div>
   </div>
-  <div id="version"><span id="ver">v2.6</span> · vaisseaux + chantier spatial</div>
+  <div id="version"><span id="ver">v2.7</span> · English + admin account</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -166,10 +166,10 @@
     <div style="font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin-bottom:6px;">Composition</div>
     <div id="pp-res"></div>
     <div id="pp-rename">
-      <input id="pp-rename-input" type="text" maxlength="40" placeholder="Nouveau nom...">
+      <input id="pp-rename-input" type="text" maxlength="40" placeholder="New name...">
       <div class="rrow">
-        <button id="pp-rename-ok" style="background:linear-gradient(90deg,#3a6ad5,#5b9bd5);color:#fff;">Valider</button>
-        <button id="pp-rename-cancel" style="background:rgba(255,255,255,0.08);color:#aaa;">Annuler</button>
+        <button id="pp-rename-ok" style="background:linear-gradient(90deg,#3a6ad5,#5b9bd5);color:#fff;">Confirm</button>
+        <button id="pp-rename-cancel" style="background:rgba(255,255,255,0.08);color:#aaa;">Cancel</button>
       </div>
     </div>
     <div id="pp-action"></div>
@@ -206,7 +206,7 @@ document.getElementById('tab-inscription').addEventListener('click',()=>setMode(
 function setMode(insc){ modeInscription=insc;
   document.getElementById('tab-connexion').classList.toggle('actif',!insc);
   document.getElementById('tab-inscription').classList.toggle('actif',insc);
-  document.getElementById('entrer').textContent=insc?'Créer mon empire':'Entrer dans la galaxie';
+  document.getElementById('entrer').textContent=insc?'Create my empire':'Enter the galaxy';
   elMsg.textContent='';
 }
 document.getElementById('entrer').addEventListener('click',entrer);
@@ -229,7 +229,7 @@ async function entrer(){
   const pseudo=elPseudo.value.trim();
   const mdp=elMdp.value;
   if(pseudo.length<2){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Pseudo : 2 caractères min."; return; }
-  if(mdp.length<4){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Mot de passe : 4 caractères min."; return; }
+  if(mdp.length<4){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Password : 4 caractères min."; return; }
   elMsg.style.color='#8a97b5'; elMsg.textContent=modeInscription?"Création...":"Connexion...";
   const route=modeInscription?'/api/inscription':'/api/connexion';
   try{
@@ -238,13 +238,13 @@ async function entrer(){
     if(d.erreur){ elMsg.style.color='#ff9b7a'; elMsg.textContent=d.erreur; return; }
     if(!d.succes){
       elMsg.style.color='#ff9b7a'; elMsg.textContent=d.message||"Échec.";
-      if(d.inconnu){ elMsg.innerHTML=d.message+' <span style="color:#9bb8ff;cursor:pointer;text-decoration:underline;" onclick="document.getElementById(\'tab-inscription\').click()">Créer ce compte ?</span>'; }
-      if(d.besoinMdp){ setMode(true); elMsg.style.color='#9bb8ff'; elMsg.textContent="Ce compte existe sans mot de passe — crée-en un pour le sécuriser."; }
+      if(d.inconnu){ elMsg.innerHTML=d.message+' <span style="color:#9bb8ff;cursor:pointer;text-decoration:underline;" onclick="document.getElementById(\'tab-inscription\').click()">Create this account?</span>'; }
+      if(d.besoinMdp){ setMode(true); elMsg.style.color='#9bb8ff'; elMsg.textContent="This account has no password — create one to secure it."; }
       return;
     }
     MON_JETON=d.jeton; localStorage.setItem('eg_jeton',d.jeton);
     await demarrerAvecSession(d);
-  }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Serveur injoignable. Réessaie."; }
+  }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Server unreachable. Réessaie."; }
 }
 
 async function demarrerAvecSession(d){
@@ -252,7 +252,7 @@ async function demarrerAvecSession(d){
   MON_PSEUDO=d.pseudo;
   MON_HOME=d.home||null;
   // charger mon profil (couleur perso)
-  await chargerProfil(MON_PSEUDO);
+  await chargerProfile(MON_PSEUDO);
   MA_COULEUR=couleurJoueur(MON_PSEUDO);
   document.getElementById('moncom').textContent=MON_PSEUDO;
   document.getElementById('hud-col').style.background=MA_COULEUR;
@@ -268,7 +268,7 @@ async function demarrerAvecSession(d){
   majBandeauStock();
 }
 
-async function chargerProfil(pseudo){
+async function chargerProfile(pseudo){
   try{ const r=await fetch('/api/profil?pseudo='+encodeURIComponent(pseudo)); if(!r.ok) return null;
     const d=await r.json(); PROFILS_CACHE[pseudo]=d; return d;
   }catch(e){ return null; }
@@ -287,9 +287,9 @@ const EMB_FORMES={
   losange:'M50,6 L90,50 L50,94 L10,50 Z',
   blason:'M14,14 H86 V54 Q86,84 50,94 Q14,84 14,54 Z'
 };
-const EMB_FORMES_NOM={ecu:'Écu',rond:'Rond',losange:'Losange',blason:'Blason'};
-const EMB_SYMBOLES_NOM={etoile:'Étoile',aigle:'Aigle',couronne:'Couronne',planete:'Planète',epees:'Épées',orbe:'Orbe'};
-function embSymbole(type,c){
+const EMB_FORMES_NOM={ecu:'Shield',rond:'Round',losange:'Diamond',blason:'Crest'};
+const EMB_SYMBOLES_NOM={etoile:'Star',aigle:'Eagle',couronne:'Crown',planete:'Planet',epees:'Swords',orbe:'Orb'};
+function embSymbol(type,c){
   const s={
     etoile:'<path d="M50,28 L56,44 L73,44 L59,54 L64,71 L50,61 L36,71 L41,54 L27,44 L44,44 Z" fill="'+c+'"/>',
     aigle:'<path d="M50,34 L62,46 L58,46 L66,56 L54,52 L54,64 L46,64 L46,52 L34,56 L42,46 L38,46 Z" fill="'+c+'"/>',
@@ -303,71 +303,71 @@ function embSymbole(type,c){
 function embToSVG(emb,size){
   if(!emb) emb={forme:'ecu',symbole:'etoile',c1:'#5b9bd5',c2:'#1c3a5a'};
   const id='e'+Math.random().toString(36).slice(2,8);
-  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 100 100" style="flex-shrink:0;"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+emb.c1+'"/><stop offset="1" stop-color="'+emb.c2+'"/></linearGradient></defs><path d="'+(EMB_FORMES[emb.forme]||EMB_FORMES.ecu)+'" fill="url(#'+id+')" stroke="'+emb.c1+'" stroke-width="2.5"/>'+embSymbole(emb.symbole,'#ffffff')+'</svg>';
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 100 100" style="flex-shrink:0;"><defs><linearGradient id="'+id+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+emb.c1+'"/><stop offset="1" stop-color="'+emb.c2+'"/></linearGradient></defs><path d="'+(EMB_FORMES[emb.forme]||EMB_FORMES.ecu)+'" fill="url(#'+id+')" stroke="'+emb.c1+'" stroke-width="2.5"/>'+embSymbol(emb.symbole,'#ffffff')+'</svg>';
 }
 
 // ============================================================
 //  PANNEAU PROFIL
 // ============================================================
-let profilEnEdition=null; // brouillon d'emblème en cours d'édition
-async function ouvrirProfil(pseudo){
+let profilEnEdition=null; // brouillon d'emblem being édition
+async function ouvrirProfile(pseudo){
   const estMoi=pseudo===MON_PSEUDO;
   document.getElementById('panel-profil').style.display='flex';
-  document.getElementById('profil-titre').innerHTML=(estMoi?'Mon profil':'Profil de '+pseudo)+' <span class="pp-close2" id="profil-close">✕</span>';
+  document.getElementById('profil-titre').innerHTML=(estMoi?'My profile':'Profile de '+pseudo)+' <span class="pp-close2" id="profil-close">✕</span>';
   document.getElementById('profil-close').onclick=()=>{ document.getElementById('panel-profil').style.display='none'; };
   const c=document.getElementById('profil-content');
   c.innerHTML='<div style="text-align:center;color:#5b6b8a;padding:20px;">Chargement...</div>';
-  const p=await chargerProfil(pseudo);
-  if(!p){ c.innerHTML='<div style="color:#ff9b7a;padding:10px;">Profil introuvable.</div>'; return; }
-  if(estMoi) afficherProfilEdition(p); else afficherProfilLecture(p);
+  const p=await chargerProfile(pseudo);
+  if(!p){ c.innerHTML='<div style="color:#ff9b7a;padding:10px;">Profile introuvable.</div>'; return; }
+  if(estMoi) afficherProfileEdition(p); else afficherProfileLecture(p);
 }
-function afficherProfilLecture(p){
+function afficherProfileLecture(p){
   const c=document.getElementById('profil-content');
-  const anc=p.cree_le?joursDepuis(p.cree_le):0;
+  const anc=p.cree_le?daysDepuis(p.cree_le):0;
   let html='<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">'+embToSVG(p.embleme,72)+
     '<div><div style="font-size:18px;font-weight:600;color:#fff;">'+(p.nom_empire||p.pseudo)+'</div>'+
-    '<div style="font-size:12px;color:#8a97b5;">Commandant '+p.pseudo+'</div>'+
+    '<div style="font-size:12px;color:#8a97b5;">Commander '+p.pseudo+'</div>'+
     (p.couleur?'<div style="display:inline-block;width:14px;height:14px;border-radius:50%;background:'+p.couleur+';margin-top:5px;border:1px solid rgba(255,255,255,0.3);"></div>':'')+'</div></div>';
   if(p.bio) html+='<div style="font-size:13px;color:#bfc8d8;font-style:italic;padding:10px;background:rgba(255,255,255,0.03);border-radius:9px;margin-bottom:14px;">« '+escapeHtml(p.bio)+' »</div>';
-  html+='<div class="pf-label">Statistiques</div>';
-  html+='<div class="pf-stat"><span>Planètes contrôlées</span><span class="v">'+(p.stats?.planetes||0)+'</span></div>';
-  html+='<div class="pf-stat"><span>Production totale</span><span class="v">'+(p.stats?.productionTotale||0)+'/h</span></div>';
-  html+='<div class="pf-stat"><span>Ancienneté</span><span class="v">'+anc+' j</span></div>';
-  if(p.titres&&p.titres.length){ html+='<div class="pf-label" style="margin-top:14px;">Titres</div><div>';
+  html+='<div class="pf-label">Statistics</div>';
+  html+='<div class="pf-stat"><span>Controlled planets</span><span class="v">'+(p.stats?.planetes||0)+'</span></div>';
+  html+='<div class="pf-stat"><span>Total production</span><span class="v">'+(p.stats?.productionTotale||0)+'/h</span></div>';
+  html+='<div class="pf-stat"><span>Seniority</span><span class="v">'+anc+' j</span></div>';
+  if(p.titres&&p.titres.length){ html+='<div class="pf-label" style="margin-top:14px;">Titles</div><div>';
     for(const t of p.titres){ html+='<span class="pf-titre" title="'+escapeHtml(t.desc||'')+'">★ '+t.nom+'</span>'; } html+='</div>'; }
   c.innerHTML=html;
 }
-function afficherProfilEdition(p){
+function afficherProfileEdition(p){
   const c=document.getElementById('profil-content');
   profilEnEdition=p.embleme?{...p.embleme}:{forme:'ecu',symbole:'etoile',c1:(p.couleur||'#5b9bd5'),c2:'#1c3a5a'};
-  const anc=p.cree_le?joursDepuis(p.cree_le):0;
+  const anc=p.cree_le?daysDepuis(p.cree_le):0;
   let html='<div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;"><div id="emb-apercu">'+embToSVG(profilEnEdition,72)+'</div>'+
-    '<div style="flex:1;"><div class="pf-label">Aperçu de l\'emblème</div><div style="font-size:11px;color:#7a8aa5;">Modifie-le ci-dessous</div></div></div>';
+    '<div style="flex:1;"><div class="pf-label">Emblem preview</div><div style="font-size:11px;color:#7a8aa5;">Edit below</div></div></div>';
   // nom empire
   html+='<div class="pf-row"><div class="pf-label">Nom de l\'empire</div><input class="pf-input" id="pf-empire" maxlength="30" value="'+escapeHtml(p.nom_empire||'')+'" placeholder="Ex: Dominion Stellaire"></div>';
   // bio
-  html+='<div class="pf-row"><div class="pf-label">Devise / bio</div><input class="pf-input" id="pf-bio" maxlength="200" value="'+escapeHtml(p.bio||'')+'" placeholder="Ta devise de conquérant"></div>';
+  html+='<div class="pf-row"><div class="pf-label">Motto / bio</div><input class="pf-input" id="pf-bio" maxlength="200" value="'+escapeHtml(p.bio||'')+'" placeholder="Your conqueror motto"></div>';
   // forme
-  html+='<div class="pf-row"><div class="pf-label">Forme du blason</div><div class="pf-choix" id="pf-formes">';
+  html+='<div class="pf-row"><div class="pf-label">Shape du blason</div><div class="pf-choix" id="pf-formes">';
   for(const f in EMB_FORMES_NOM) html+='<div class="pf-opt'+(profilEnEdition.forme===f?' sel':'')+'" data-forme="'+f+'">'+EMB_FORMES_NOM[f]+'</div>';
   html+='</div></div>';
   // symbole
-  html+='<div class="pf-row"><div class="pf-label">Symbole</div><div class="pf-choix" id="pf-symboles">';
+  html+='<div class="pf-row"><div class="pf-label">Symbol</div><div class="pf-choix" id="pf-symboles">';
   for(const s in EMB_SYMBOLES_NOM) html+='<div class="pf-opt'+(profilEnEdition.symbole===s?' sel':'')+'" data-symbole="'+s+'">'+EMB_SYMBOLES_NOM[s]+'</div>';
   html+='</div></div>';
   // couleurs
-  html+='<div class="pf-row"><div class="pf-label">Couleurs (empire + fond)</div><div style="display:flex;gap:10px;align-items:center;">'+
+  html+='<div class="pf-row"><div class="pf-label">Colors (empire + background)</div><div style="display:flex;gap:10px;align-items:center;">'+
     '<input type="color" class="pf-color" id="pf-c1" value="'+profilEnEdition.c1+'"> <span style="font-size:11px;color:#8a97b5;">Empire</span>'+
     '<input type="color" class="pf-color" id="pf-c2" value="'+profilEnEdition.c2+'"> <span style="font-size:11px;color:#8a97b5;">Fond</span></div></div>';
   // stats + titres
-  html+='<div class="pf-label" style="margin-top:6px;">Statistiques</div>';
-  html+='<div class="pf-stat"><span>Planètes</span><span class="v">'+(p.stats?.planetes||0)+'</span></div>';
-  html+='<div class="pf-stat"><span>Production totale</span><span class="v">'+(p.stats?.productionTotale||0)+'/h</span></div>';
-  html+='<div class="pf-stat"><span>Ancienneté</span><span class="v">'+anc+' j</span></div>';
-  if(p.titres&&p.titres.length){ html+='<div class="pf-label" style="margin-top:12px;">Titres débloqués</div><div>';
+  html+='<div class="pf-label" style="margin-top:6px;">Statistics</div>';
+  html+='<div class="pf-stat"><span>Planets</span><span class="v">'+(p.stats?.planetes||0)+'</span></div>';
+  html+='<div class="pf-stat"><span>Total production</span><span class="v">'+(p.stats?.productionTotale||0)+'/h</span></div>';
+  html+='<div class="pf-stat"><span>Seniority</span><span class="v">'+anc+' j</span></div>';
+  if(p.titres&&p.titres.length){ html+='<div class="pf-label" style="margin-top:12px;">Titles unlocked</div><div>';
     for(const t of p.titres) html+='<span class="pf-titre" title="'+escapeHtml(t.desc||'')+'">★ '+t.nom+'</span>'; html+='</div>'; }
-  html+='<button class="pf-btn" id="pf-save" style="background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;">Enregistrer</button>';
-  html+='<button class="pf-btn" id="pf-logout" style="background:rgba(255,120,90,0.12);color:#ff9b7a;">Se déconnecter</button>';
+  html+='<button class="pf-btn" id="pf-save" style="background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;">Save</button>';
+  html+='<button class="pf-btn" id="pf-logout" style="background:rgba(255,120,90,0.12);color:#ff9b7a;">Log out</button>';
   c.innerHTML=html;
   // interactions edition embleme
   function rafraichirApercu(){ document.getElementById('emb-apercu').innerHTML=embToSVG(profilEnEdition,72); }
@@ -375,10 +375,10 @@ function afficherProfilEdition(p){
   c.querySelectorAll('#pf-symboles .pf-opt').forEach(el=>el.onclick=()=>{ profilEnEdition.symbole=el.dataset.symbole; c.querySelectorAll('#pf-symboles .pf-opt').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); rafraichirApercu(); });
   document.getElementById('pf-c1').oninput=(e)=>{ profilEnEdition.c1=e.target.value; rafraichirApercu(); };
   document.getElementById('pf-c2').oninput=(e)=>{ profilEnEdition.c2=e.target.value; rafraichirApercu(); };
-  document.getElementById('pf-save').onclick=sauverProfil;
+  document.getElementById('pf-save').onclick=sauverProfile;
   document.getElementById('pf-logout').onclick=deconnexion;
 }
-async function sauverProfil(){
+async function sauverProfile(){
   const nomEmpire=document.getElementById('pf-empire').value.trim();
   const bio=document.getElementById('pf-bio').value.trim();
   const couleur=profilEnEdition.c1; // la couleur d'empire devient la couleur du joueur
@@ -388,16 +388,16 @@ async function sauverProfil(){
     const d=await r.json();
     if(d.succes){
       // maj cache + couleur en jeu
-      PROFILS_CACHE[MON_PSEUDO]=null; await chargerProfil(MON_PSEUDO);
+      PROFILS_CACHE[MON_PSEUDO]=null; await chargerProfile(MON_PSEUDO);
       MA_COULEUR=couleurJoueur(MON_PSEUDO);
       document.getElementById('hud-col').style.background=MA_COULEUR;
-      btn.textContent='✓ Enregistré'; setTimeout(()=>{ btn.textContent='Enregistrer'; btn.disabled=false; },1200);
+      btn.textContent='✓ Saved'; setTimeout(()=>{ btn.textContent='Save'; btn.disabled=false; },1200);
     } else { btn.textContent='Erreur'; btn.disabled=false; }
-  }catch(e){ btn.textContent='Erreur réseau'; btn.disabled=false; }
+  }catch(e){ btn.textContent='Network error'; btn.disabled=false; }
 }
-function joursDepuis(dateStr){ return Math.max(0,Math.floor((Date.now()-new Date(dateStr).getTime())/86400000)); }
+function daysDepuis(dateStr){ return Math.max(0,Math.floor((Date.now()-new Date(dateStr).getTime())/86400000)); }
 function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-document.getElementById('hud-profil').addEventListener('click',()=>ouvrirProfil(MON_PSEUDO));
+document.getElementById('hud-profil').addEventListener('click',()=>ouvrirProfile(MON_PSEUDO));
 async function chargerPossessions(){
   try{ const r=await fetch('/api/possessions'); const d=await r.json();
     const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine,nom_perso:p.nom_perso}; }
@@ -416,14 +416,14 @@ async function coloniser(addr){
     const d=await r.json();
     if(d.succes){ POSSESSIONS[addr]={joueur:MON_PSEUDO,origine:false,nom_perso:null}; return {ok:true}; }
     return {ok:false,msg:d.message||"Impossible"};
-  }catch(e){ return {ok:false,msg:"Serveur injoignable"}; }
+  }catch(e){ return {ok:false,msg:"Server unreachable"}; }
 }
 async function renommer(addr,nom){
   try{ const r=await fetch('/api/renommer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pseudo:MON_PSEUDO,addr,nom})});
     const d=await r.json();
     if(d.succes){ if(POSSESSIONS[addr]) POSSESSIONS[addr].nom_perso=nom||null; return {ok:true}; }
     return {ok:false,msg:d.message||"Impossible"};
-  }catch(e){ return {ok:false,msg:"Serveur injoignable"}; }
+  }catch(e){ return {ok:false,msg:"Server unreachable"}; }
 }
 // nom scientifique deterministe (IDENTIQUE au serveur galaxy.js)
 function nomScientifique(addr){
@@ -438,23 +438,23 @@ function nomScientifique(addr){
 
 // ---- ECONOMIE cote client : stock + interpolation visuelle ----
 const RES_META={
-  fer:{label:'Fer',sym:'Fe',col:'#b08d6a',tier:0},silicates:{label:'Silicates',sym:'Si',col:'#a0998c',tier:0},
-  aluminium:{label:'Aluminium',sym:'Al',col:'#c8c2bc',tier:0},carbone:{label:'Carbone',sym:'C',col:'#6a7a5a',tier:0},
-  eau:{label:'Eau',sym:'Eau',col:'#5b9bd5',tier:0},biomasse:{label:'Biomasse',sym:'Bio',col:'#7ac74f',tier:0},
-  hydrogene:{label:'Hydrogène',sym:'H',col:'#9bb8ff',tier:0},solaire:{label:'Énergie solaire',sym:'So',col:'#ffc040',tier:0},
-  cuivre:{label:'Cuivre',sym:'Cu',col:'#d18a5a',tier:1},nickel:{label:'Nickel',sym:'Ni',col:'#b8b8c0',tier:1},
-  zinc:{label:'Zinc',sym:'Zn',col:'#9aa0a8',tier:1},plomb:{label:'Plomb',sym:'Pb',col:'#6a6a78',tier:1},
-  etain:{label:'Étain',sym:'Sn',col:'#d8d0c0',tier:1},soufre:{label:'Soufre',sym:'S',col:'#e0b040',tier:1},
-  methane:{label:'Méthane',sym:'Me',col:'#a0b0d0',tier:1},
-  titane:{label:'Titane',sym:'Ti',col:'#c4c4cc',tier:2},cobalt:{label:'Cobalt',sym:'Co',col:'#4a6bd5',tier:2},
-  lithium:{label:'Lithium',sym:'Li',col:'#e0d090',tier:2},cristaux:{label:'Cristaux',sym:'Cr',col:'#6bb8e0',tier:2},
-  helium3:{label:'Hélium-3',sym:'He',col:'#e06baa',tier:2},
-  argent:{label:'Argent',sym:'Ag',col:'#e8e0e8',tier:3},uranium:{label:'Uranium',sym:'U',col:'#9bd54f',tier:3},
-  thorium:{label:'Thorium',sym:'Th',col:'#7ab84f',tier:3},terres_rares:{label:'Terres rares',sym:'Tr',col:'#a0c8e8',tier:3},
+  fer:{label:'Iron',sym:'Fe',col:'#b08d6a',tier:0},silicates:{label:'Silicates',sym:'Si',col:'#a0998c',tier:0},
+  aluminium:{label:'Aluminum',sym:'Al',col:'#c8c2bc',tier:0},carbone:{label:'Carbon',sym:'C',col:'#6a7a5a',tier:0},
+  eau:{label:'Water',sym:'Water',col:'#5b9bd5',tier:0},biomasse:{label:'Biomass',sym:'Bio',col:'#7ac74f',tier:0},
+  hydrogene:{label:'Hydrogen',sym:'H',col:'#9bb8ff',tier:0},solaire:{label:'Solar energy',sym:'So',col:'#ffc040',tier:0},
+  cuivre:{label:'Copper',sym:'Cu',col:'#d18a5a',tier:1},nickel:{label:'Nickel',sym:'Ni',col:'#b8b8c0',tier:1},
+  zinc:{label:'Zinc',sym:'Zn',col:'#9aa0a8',tier:1},plomb:{label:'Lead',sym:'Pb',col:'#6a6a78',tier:1},
+  etain:{label:'Tin',sym:'Sn',col:'#d8d0c0',tier:1},soufre:{label:'Sulfur',sym:'S',col:'#e0b040',tier:1},
+  methane:{label:'Methane',sym:'Me',col:'#a0b0d0',tier:1},
+  titane:{label:'Titanium',sym:'Ti',col:'#c4c4cc',tier:2},cobalt:{label:'Cobalt',sym:'Co',col:'#4a6bd5',tier:2},
+  lithium:{label:'Lithium',sym:'Li',col:'#e0d090',tier:2},cristaux:{label:'Crystals',sym:'Cr',col:'#6bb8e0',tier:2},
+  helium3:{label:'Helium-3',sym:'He',col:'#e06baa',tier:2},
+  argent:{label:'Silver',sym:'Ag',col:'#e8e0e8',tier:3},uranium:{label:'Uranium',sym:'U',col:'#9bd54f',tier:3},
+  thorium:{label:'Thorium',sym:'Th',col:'#7ab84f',tier:3},terres_rares:{label:'Rare earths',sym:'Tr',col:'#a0c8e8',tier:3},
   gaz_exo:{label:'Gaz exotiques',sym:'Gx',col:'#d8a878',tier:3},
-  or:{label:'Or',sym:'Au',col:'#ffd84a',tier:4},platine:{label:'Platine',sym:'Pt',col:'#dfe8f0',tier:4},
+  or:{label:'Gold',sym:'Au',col:'#ffd84a',tier:4},platine:{label:'Platinum',sym:'Pt',col:'#dfe8f0',tier:4},
   palladium:{label:'Palladium',sym:'Pd',col:'#c8d0d8',tier:4},cristaux_exo:{label:'Cristaux exotiques',sym:'Cx',col:'#c89aff',tier:4},
-  antimatiere:{label:'Antimatière',sym:'Am',col:'#c89aff',tier:5},metamateriaux:{label:'Métamatériaux',sym:'Mm',col:'#88e0d0',tier:5}
+  antimatiere:{label:'Antimatter',sym:'Am',col:'#c89aff',tier:5},metamateriaux:{label:'Metamaterials',sym:'Mm',col:'#88e0d0',tier:5}
 };
 const TIER_COL_GLOBAL=['#1d9e75','#639922','#ba7517','#d85a30','#993556','#7f77dd'];
 // pastille facon tableau periodique : carre colore avec symbole. Taille en px.
@@ -475,16 +475,16 @@ let STOCK={};        // ressource -> quantite (au dernier appel serveur)
 let PROD_H={};       // ressource -> production/heure
 // metadonnees batiments cote client (affichage)
 const BAT_META={
-  commandement:{nom:"Centre de commandement",desc:"Débloque les paliers supérieurs",branche:"central",col:"#b4b2a9",effet:"Niveau de la planète"},
-  extracteur:{nom:"Extracteur",desc:"Augmente la production brute",branche:"extraction",col:"#97c459",effet:"+15% production / niveau"},
-  raffinerie:{nom:"Raffinerie",desc:"Affine en métaux rares",branche:"extraction",col:"#97c459",effet:"+10% métaux rares / niveau"},
-  centrale:{nom:"Centrale énergétique",desc:"Produit l'énergie de base",branche:"energie",col:"#ef9f27",effet:"+50 énergie / niveau"},
-  collecteur:{nom:"Collecteur solaire",desc:"Énergie en grande quantité",branche:"energie",col:"#ef9f27",effet:"+120 énergie / niveau"},
-  entrepot:{nom:"Entrepôt",desc:"Capacité de stockage",branche:"stockage",col:"#85b7eb",effet:"+5000 capacité / niveau"},
-  caserne:{nom:"Caserne orbitale",desc:"Défense planétaire",branche:"militaire",col:"#ed93b1",effet:"+100 défense / niveau"},
-  laboratoire:{nom:"Laboratoire",desc:"Recherche avancée",branche:"avance",col:"#afa9ec",effet:"Débloque les technologies"},
-  chantier:{nom:"Chantier spatial",desc:"Construit les vaisseaux",branche:"avance",col:"#f0997b",effet:"Production de vaisseaux"},
-  arsenal:{nom:"Arsenal stellaire",desc:"Flottes de guerre",branche:"avance",col:"#f0997b",effet:"Vaisseaux militaires"}
+  commandement:{nom:"Command Center",desc:"Unlocks higher tiers",branche:"central",col:"#b4b2a9",effet:"Planet level"},
+  extracteur:{nom:"Extractor",desc:"Increases raw production",branche:"extraction",col:"#97c459",effet:"+15% production / level"},
+  raffinerie:{nom:"Refinery",desc:"Refines into rare metals",branche:"extraction",col:"#97c459",effet:"+10% rare metals / level"},
+  centrale:{nom:"Power Plant",desc:"Produces base energy",branche:"energie",col:"#ef9f27",effet:"+50 energy / level"},
+  collecteur:{nom:"Solar Collector",desc:"Large energy output",branche:"energie",col:"#ef9f27",effet:"+120 energy / level"},
+  entrepot:{nom:"Warehouse",desc:"Storage capacity",branche:"stockage",col:"#85b7eb",effet:"+5000 capacity / level"},
+  caserne:{nom:"Orbital Barracks",desc:"Planetary defense",branche:"militaire",col:"#ed93b1",effet:"+100 defense / level"},
+  laboratoire:{nom:"Laboratory",desc:"Advanced research",branche:"avance",col:"#afa9ec",effet:"Unlocks technologies"},
+  chantier:{nom:"Shipyard",desc:"Builds ships",branche:"avance",col:"#f0997b",effet:"Ship production"},
+  arsenal:{nom:"Stellar Arsenal",desc:"War fleets",branche:"avance",col:"#f0997b",effet:"Military ships"}
 };
 // icones SVG des batiments (dessinees, sans dependance externe)
 function batIcone(code,size){
@@ -507,10 +507,10 @@ let BAT_PLANETE=null;   // etat des batiments de la planete ouverte
 let VAISSEAUX_PLANETE=null; // etat des vaisseaux de la planete ouverte
 // meta + icones des vaisseaux
 const VAI_META={
-  chasseur:{nom:"Chasseur",col:"#f0997b",sous:"Léger · rapide"},
-  croiseur:{nom:"Croiseur",col:"#ed93b1",sous:"Lourd · puissant"},
-  transport:{nom:"Transport",col:"#85b7eb",sous:"Logistique"},
-  colonisateur:{nom:"Colonisateur",col:"#afa9ec",sous:"Expansion"}
+  chasseur:{nom:"Fighter",col:"#f0997b",sous:"Light · fast"},
+  croiseur:{nom:"Cruiser",col:"#ed93b1",sous:"Heavy · powerful"},
+  transport:{nom:"Transport",col:"#85b7eb",sous:"Logistics"},
+  colonisateur:{nom:"Colony Ship",col:"#afa9ec",sous:"Expansion"}
 };
 const VAI_ORDRE=['chasseur','croiseur','transport','colonisateur'];
 function vaiIcone(type,size){
@@ -533,7 +533,7 @@ async function chargerStock(){
 function majBandeauStock(){
   const el=document.getElementById('bandeau-stock'); if(!el) return;
   const keys=Object.keys(STOCK).filter(k=>STOCK[k]>0 || PROD_H[k]>0);
-  if(keys.length===0){ el.innerHTML='<span class="res-empty">Aucune ressource — colonise une planète pour produire</span>'; return; }
+  if(keys.length===0){ el.innerHTML='<span class="res-empty">No resources — colonize a planet to produce</span>'; return; }
   // tri par rareté décroissante puis quantité
   keys.sort((a,b)=>(RES_META[b]?.tier||0)-(RES_META[a]?.tier||0) || STOCK[b]-STOCK[a]);
   // interpolation : quantité affichée = stock + prod * temps écoulé
@@ -571,33 +571,33 @@ function demarrerJeu(){
   function rng(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
 
   const STAR_TYPES=[
-    {cls:'M',label:'Naine rouge',core:'#ffd9c0',edge:'#e8502a',halo:'235,90,50',rFactor:0.55,freq:34,lum:0.7,tw:0.10},
-    {cls:'K',label:'Naine orange',core:'#ffe8c8',edge:'#f0832e',halo:'245,140,60',rFactor:0.8,freq:20,lum:0.8,tw:0.08},
+    {cls:'M',label:'Red dwarf',core:'#ffd9c0',edge:'#e8502a',halo:'235,90,50',rFactor:0.55,freq:34,lum:0.7,tw:0.10},
+    {cls:'K',label:'Orange dwarf',core:'#ffe8c8',edge:'#f0832e',halo:'245,140,60',rFactor:0.8,freq:20,lum:0.8,tw:0.08},
     {cls:'G',label:'Naine jaune',core:'#fffdf2',edge:'#f5b840',halo:'250,200,110',rFactor:1.0,freq:16,lum:0.9,tw:0.06},
     {cls:'F',label:'Blanc-jaune',core:'#fffef8',edge:'#f5dca0',halo:'250,230,180',rFactor:1.2,freq:10,lum:0.95,tw:0.05},
-    {cls:'A',label:'Étoile blanche',core:'#ffffff',edge:'#cfe0f5',halo:'200,220,250',rFactor:1.5,freq:7,lum:1.0,tw:0.05},
-    {cls:'B',label:'Géante bleue',core:'#f0f6ff',edge:'#7ba8f0',halo:'130,175,250',rFactor:2.4,freq:5,lum:1.1,tw:0.04},
-    {cls:'DA',label:'Naine blanche',core:'#ffffff',edge:'#bcd4f5',halo:'190,215,250',rFactor:0.32,freq:5,lum:1.1,tw:0.14},
-    {cls:'RG',label:'Géante rouge',core:'#ffdcb0',edge:'#e85a28',halo:'235,90,45',rFactor:3.0,freq:3,lum:0.85,tw:0.07}
+    {cls:'A',label:'White star',core:'#ffffff',edge:'#cfe0f5',halo:'200,220,250',rFactor:1.5,freq:7,lum:1.0,tw:0.05},
+    {cls:'B',label:'Blue giant',core:'#f0f6ff',edge:'#7ba8f0',halo:'130,175,250',rFactor:2.4,freq:5,lum:1.1,tw:0.04},
+    {cls:'DA',label:'White dwarf',core:'#ffffff',edge:'#bcd4f5',halo:'190,215,250',rFactor:0.32,freq:5,lum:1.1,tw:0.14},
+    {cls:'RG',label:'Red giant',core:'#ffdcb0',edge:'#e85a28',halo:'235,90,45',rFactor:3.0,freq:3,lum:0.85,tw:0.07}
   ];
   const STAR_POOL=[]; STAR_TYPES.forEach((s,i)=>{ for(let k=0;k<s.freq;k++) STAR_POOL.push(i); });
   const RES={
-    fer:{label:'Fer',icon:'ti-pick',col:'#9a8a78',tier:0},silicates:{label:'Silicates',icon:'ti-mountain',col:'#a0998c',tier:0},
-    aluminium:{label:'Aluminium',icon:'ti-pick',col:'#c0b8b0',tier:0},carbone:{label:'Carbone',icon:'ti-leaf',col:'#7a8a6a',tier:0},
-    eau:{label:'Eau',icon:'ti-droplet',col:'#5b9bd5',tier:0},biomasse:{label:'Biomasse',icon:'ti-leaf',col:'#7ac74f',tier:0},
-    cuivre:{label:'Cuivre',icon:'ti-ingot',col:'#c8845a',tier:1},nickel:{label:'Nickel',icon:'ti-ingot',col:'#b8b8c0',tier:1},
-    zinc:{label:'Zinc',icon:'ti-ingot',col:'#8a8a92',tier:1},plomb:{label:'Plomb',icon:'ti-ingot',col:'#6a6a72',tier:1},
-    etain:{label:'Étain',icon:'ti-ingot',col:'#d8d0c0',tier:1},soufre:{label:'Soufre',icon:'ti-flame',col:'#e0a040',tier:1},
-    titane:{label:'Titane',icon:'ti-ingot',col:'#c0c0c8',tier:2},cobalt:{label:'Cobalt',icon:'ti-flask',col:'#4a6bd5',tier:2},
-    lithium:{label:'Lithium',icon:'ti-battery',col:'#e0d090',tier:2},cristaux:{label:'Cristaux',icon:'ti-diamond',col:'#6bb8e0',tier:2},
-    helium3:{label:'Hélium-3',icon:'ti-flask',col:'#e06baa',tier:2},
-    argent:{label:'Argent',icon:'ti-coin',col:'#e8e0e8',tier:3},uranium:{label:'Uranium',icon:'ti-radioactive',col:'#9bd54f',tier:3},
-    thorium:{label:'Thorium',icon:'ti-radioactive',col:'#7ab84f',tier:3},terres_rares:{label:'Terres rares',icon:'ti-stars',col:'#a0c8e8',tier:3},
-    or:{label:'Or',icon:'ti-coin',col:'#ffd84a',tier:4},platine:{label:'Platine',icon:'ti-coin',col:'#dfe8f0',tier:4},
+    fer:{label:'Iron',icon:'ti-pick',col:'#9a8a78',tier:0},silicates:{label:'Silicates',icon:'ti-mountain',col:'#a0998c',tier:0},
+    aluminium:{label:'Aluminum',icon:'ti-pick',col:'#c0b8b0',tier:0},carbone:{label:'Carbon',icon:'ti-leaf',col:'#7a8a6a',tier:0},
+    eau:{label:'Water',icon:'ti-droplet',col:'#5b9bd5',tier:0},biomasse:{label:'Biomass',icon:'ti-leaf',col:'#7ac74f',tier:0},
+    cuivre:{label:'Copper',icon:'ti-ingot',col:'#c8845a',tier:1},nickel:{label:'Nickel',icon:'ti-ingot',col:'#b8b8c0',tier:1},
+    zinc:{label:'Zinc',icon:'ti-ingot',col:'#8a8a92',tier:1},plomb:{label:'Lead',icon:'ti-ingot',col:'#6a6a72',tier:1},
+    etain:{label:'Tin',icon:'ti-ingot',col:'#d8d0c0',tier:1},soufre:{label:'Sulfur',icon:'ti-flame',col:'#e0a040',tier:1},
+    titane:{label:'Titanium',icon:'ti-ingot',col:'#c0c0c8',tier:2},cobalt:{label:'Cobalt',icon:'ti-flask',col:'#4a6bd5',tier:2},
+    lithium:{label:'Lithium',icon:'ti-battery',col:'#e0d090',tier:2},cristaux:{label:'Crystals',icon:'ti-diamond',col:'#6bb8e0',tier:2},
+    helium3:{label:'Helium-3',icon:'ti-flask',col:'#e06baa',tier:2},
+    argent:{label:'Silver',icon:'ti-coin',col:'#e8e0e8',tier:3},uranium:{label:'Uranium',icon:'ti-radioactive',col:'#9bd54f',tier:3},
+    thorium:{label:'Thorium',icon:'ti-radioactive',col:'#7ab84f',tier:3},terres_rares:{label:'Rare earths',icon:'ti-stars',col:'#a0c8e8',tier:3},
+    or:{label:'Gold',icon:'ti-coin',col:'#ffd84a',tier:4},platine:{label:'Platinum',icon:'ti-coin',col:'#dfe8f0',tier:4},
     palladium:{label:'Palladium',icon:'ti-coin',col:'#c8d0d8',tier:4},cristaux_exo:{label:'Cristaux exotiques',icon:'ti-diamond',col:'#b088e0',tier:4},
-    antimatiere:{label:'Antimatière',icon:'ti-atom',col:'#b088e0',tier:5},metamateriaux:{label:'Métamatériaux',icon:'ti-sparkles',col:'#88e0d0',tier:5},
-    hydrogene:{label:'Hydrogène',icon:'ti-air-balloon',col:'#9bb8ff',tier:0},methane:{label:'Méthane',icon:'ti-cloud',col:'#a0b0d0',tier:1},
-    gaz_exo:{label:'Gaz exotiques',icon:'ti-cloud-fog',col:'#d8a878',tier:3},solaire:{label:'Énergie solaire',icon:'ti-sun',col:'#ffc040',tier:0}
+    antimatiere:{label:'Antimatter',icon:'ti-atom',col:'#b088e0',tier:5},metamateriaux:{label:'Metamaterials',icon:'ti-sparkles',col:'#88e0d0',tier:5},
+    hydrogene:{label:'Hydrogen',icon:'ti-air-balloon',col:'#9bb8ff',tier:0},methane:{label:'Methane',icon:'ti-cloud',col:'#a0b0d0',tier:1},
+    gaz_exo:{label:'Gaz exotiques',icon:'ti-cloud-fog',col:'#d8a878',tier:3},solaire:{label:'Solar energy',icon:'ti-sun',col:'#ffc040',tier:0}
   };
   const TIER_COL=['#1d9e75','#639922','#ba7517','#d85a30','#993556','#7f77dd'];
   const PROFILS={
@@ -612,15 +612,15 @@ function demarrerJeu(){
     geante_glace:[['helium3',8,1],['eau',6,0.9],['methane',7,0.85],['hydrogene',5,0.6],['cristaux_exo',5,0.03]]
   };
   const PLANET_TYPES={
-    rocheuse:{water:'#5a5048',land:'#8a7560',high:'#b09478',polar:'#d8d0c8',atmo:null,label:'Rocheuse',sizeMin:3,sizeMax:6},
-    tellurique:{water:'#3a5a8a',land:'#6b7a4a',high:'#9a8a5a',polar:'#dde8ee',atmo:'120,160,210',label:'Tellurique',sizeMin:4,sizeMax:7},
-    ocean:{water:'#1c5a9a',land:'#3a8a5a',high:'#7aaa6a',polar:'#e8f4f8',atmo:'110,180,230',label:'Océanique',sizeMin:4,sizeMax:7},
-    desert:{water:'#8a5a3a',land:'#c08a4a',high:'#e0b878',polar:'#f0e0c0',atmo:'200,160,110',label:'Désertique',sizeMin:3,sizeMax:6},
-    volcanique:{water:'#3a1a1a',land:'#6a2a1a',high:'#c84a20',polar:'#8a3a2a',atmo:null,label:'Volcanique',sizeMin:3,sizeMax:6,glow:1},
+    rocheuse:{water:'#5a5048',land:'#8a7560',high:'#b09478',polar:'#d8d0c8',atmo:null,label:'Rocky',sizeMin:3,sizeMax:6},
+    tellurique:{water:'#3a5a8a',land:'#6b7a4a',high:'#9a8a5a',polar:'#dde8ee',atmo:'120,160,210',label:'Terrestrial',sizeMin:4,sizeMax:7},
+    ocean:{water:'#1c5a9a',land:'#3a8a5a',high:'#7aaa6a',polar:'#e8f4f8',atmo:'110,180,230',label:'Oceanic',sizeMin:4,sizeMax:7},
+    desert:{water:'#8a5a3a',land:'#c08a4a',high:'#e0b878',polar:'#f0e0c0',atmo:'200,160,110',label:'Desert',sizeMin:3,sizeMax:6},
+    volcanique:{water:'#3a1a1a',land:'#6a2a1a',high:'#c84a20',polar:'#8a3a2a',atmo:null,label:'Volcanic',sizeMin:3,sizeMax:6,glow:1},
     glace:{water:'#7aa8c8',land:'#a8d0e0',high:'#d8eef8',polar:'#ffffff',atmo:'170,205,235',label:'Glaciaire',sizeMin:3,sizeMax:6},
-    naine:{water:'#6a6058',land:'#888078',high:'#a89c90',polar:'#c0c0c0',atmo:null,label:'Planète naine',sizeMin:2,sizeMax:3},
-    gazeuse:{atmo:'200,175,135',label:'Géante gazeuse',gas:true,sizeMin:11,sizeMax:17},
-    geante_glace:{atmo:'140,185,215',label:'Géante de glace',gas:true,icy:true,sizeMin:9,sizeMax:13}
+    naine:{water:'#6a6058',land:'#888078',high:'#a89c90',polar:'#c0c0c0',atmo:null,label:'Dwarf planet',sizeMin:2,sizeMax:3},
+    gazeuse:{atmo:'200,175,135',label:'Gas giant',gas:true,sizeMin:11,sizeMax:17},
+    geante_glace:{atmo:'140,185,215',label:'Ice giant',gas:true,icy:true,sizeMin:9,sizeMax:13}
   };
   const PTYPE_POOL=['rocheuse','tellurique','tellurique','ocean','desert','desert','volcanique','glace','naine','gazeuse','gazeuse','geante_glace'];
   const ROMAN=['I','II','III','IV','V','VI','VII','VIII','IX','X'];
@@ -766,8 +766,8 @@ function demarrerJeu(){
     const owner=POSSESSIONS[p.addr];
     const ownEl=document.getElementById('pp-owner');
     if(owner){ const c=couleurJoueur(owner.joueur); ownEl.innerHTML='<span style="color:'+c+'">● '+owner.joueur+(owner.joueur===MON_PSEUDO?' (vous)':'')+(owner.origine?' · monde d\'origine':'')+'</span>'; }
-    else ownEl.innerHTML='<span style="color:#7a8aa5">● Libre</span>';
-    document.getElementById('pp-tag').innerHTML=p.hotspot?'<span style="display:inline-block;font-size:10.5px;color:#ffcb46;background:rgba(255,200,70,0.12);border:1px solid rgba(255,200,70,0.4);padding:2px 8px;border-radius:6px;"><i class="ti ti-star" style="font-size:11px;"></i> Point d\'intérêt</span>':'';
+    else ownEl.innerHTML='<span style="color:#7a8aa5">● Free</span>';
+    document.getElementById('pp-tag').innerHTML=p.hotspot?'<span style="display:inline-block;font-size:10.5px;color:#ffcb46;background:rgba(255,200,70,0.12);border:1px solid rgba(255,200,70,0.4);padding:2px 8px;border-radius:6px;"><i class="ti ti-star" style="font-size:11px;"></i> Point of interest</span>':'';
     let html=''; if(!p.resources.length) html='<div style="color:#5b6b8a;font-size:12px;">Aucune ressource notable</div>';
     for(const rr of p.resources){ const def=RES[rr.key]; html+='<div style="padding:5px 0;border-bottom:0.5px solid rgba(255,255,255,0.05);"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;"><span style="display:flex;align-items:center;gap:7px;font-size:12.5px;color:#dfe6f5;">'+elemPill(rr.key,24)+def.label+'</span><span style="font-size:10px;color:'+TIER_COL[rr.tier]+';font-weight:500;">'+rr.d+'/10</span></div><div style="line-height:0;">'+densBar(rr.d,rr.tier)+'</div></div>'; }
     document.getElementById('pp-res').innerHTML=html;
@@ -783,18 +783,18 @@ function demarrerJeu(){
     }
     document.getElementById('pp-rename').style.display='none';
     const act=document.getElementById('pp-action');
-    if(!owner){ act.innerHTML='<button class="btn-colo" id="do-colo">» Coloniser</button>';
+    if(!owner){ act.innerHTML='<button class="btn-colo" id="do-colo">» Colonize</button>';
       document.getElementById('do-colo').onclick=async()=>{ act.innerHTML='<button class="btn-colo" disabled>Colonisation...</button>';
         const res=await coloniser(p.addr); if(res.ok){ chargerStock(); montrerPopup(p); majPanneauPlanetes(); } else { act.innerHTML='<button class="btn-taken">'+res.msg+'</button>'; setTimeout(()=>montrerPopup(p),1500); } };
     } else if(owner.joueur===MON_PSEUDO){
-      act.innerHTML='<div style="display:flex;gap:6px;"><button class="btn-mine" id="do-gerer" style="flex:1;background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;">⚒ Gérer</button><button class="btn-mine" id="do-rename" style="flex:1;">✎ Renommer</button></div>';
+      act.innerHTML='<div style="display:flex;gap:6px;"><button class="btn-mine" id="do-gerer" style="flex:1;background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;">⚒ Manage</button><button class="btn-mine" id="do-rename" style="flex:1;">✎ Rename</button></div>';
       document.getElementById('do-gerer').onclick=()=>{ document.getElementById('popup').style.display='none'; ouvrirConstruction(p.addr); };
       document.getElementById('do-rename').onclick=()=>{
         const rn=document.getElementById('pp-rename'); rn.style.display='block';
         const inp=document.getElementById('pp-rename-input'); inp.value=owner.nom_perso||''; inp.focus();
       };
-    } else { act.innerHTML='<button class="btn-taken" id="do-voir-profil" style="cursor:pointer;">🔒 Possédée par '+owner.joueur+' — voir profil</button>';
-      const b=document.getElementById('do-voir-profil'); if(b) b.onclick=()=>ouvrirProfil(owner.joueur); }
+    } else { act.innerHTML='<button class="btn-taken" id="do-voir-profil" style="cursor:pointer;">🔒 Owned by '+owner.joueur+' — view profile</button>';
+      const b=document.getElementById('do-voir-profil'); if(b) b.onclick=()=>ouvrirProfile(owner.joueur); }
     document.getElementById('popup').style.display='block';
   }
   // gestion des boutons de renommage (une seule fois)
@@ -826,7 +826,7 @@ function demarrerJeu(){
   function majPanneauPlanetes(){
     const liste=document.getElementById('liste-mes-planetes');
     const mp=mesPlanetes();
-    if(mp.length===0){ liste.innerHTML='<div class="mp-empty">Aucune planète colonisée pour l\'instant.<br><br>Clique une planète libre et colonise-la !</div>'; return; }
+    if(mp.length===0){ liste.innerHTML='<div class="mp-empty">No planets colonized yet.<br><br>Click a free planet and colonize it!</div>'; return; }
     let html='';
     for(const it of mp){
       const sel=selectedPlanet===it.p?' sel':'';
@@ -856,7 +856,7 @@ function demarrerJeu(){
 
   // ---- PANNEAU EMPIRE ----
   const TIER_COL_EMP=['#1d9e75','#639922','#ba7517','#d85a30','#993556','#7f77dd'];
-  const TIER_NOM=['Commun','Industriel','Stratégique','Précieux','Très précieux','Exotique'];
+  const TIER_NOM=['Commun','Industriel','Strategic','Precious','Very precious','Exotique'];
   const RES_TAUX_CLIENT={fer:6,silicates:6,aluminium:5,carbone:5,eau:6,biomasse:5,hydrogene:6,solaire:6,cuivre:3,nickel:3,zinc:3,plomb:2.5,etain:2.5,soufre:3,methane:3,titane:1.5,cobalt:1.2,lithium:1.5,cristaux:1.2,helium3:1.5,argent:0.5,uranium:0.5,thorium:0.4,terres_rares:0.5,gaz_exo:0.5,or:0.2,platine:0.18,palladium:0.18,cristaux_exo:0.12,antimatiere:0.04,metamateriaux:0.04};
   function prodPlanete(addr){ const mm=/^S(\d+)-P(\d+)$/.exec(addr); if(!mm) return {}; const sysIdx=parseInt(mm[1],10),pIdx=parseInt(mm[2],10);
     const sys=SYS_BY_IDX[sysIdx]; if(!sys) return {}; ensurePlanets(sys); const p=sys.planets[pIdx]; if(!p) return {};
@@ -867,26 +867,26 @@ function demarrerJeu(){
     const keys=Object.keys(STOCK).filter(k=>STOCK[k]>0||PROD_H[k]>0);
     let nbPlanetes=0; for(const addr in POSSESSIONS){ if(POSSESSIONS[addr].joueur===MON_PSEUDO) nbPlanetes++; }
     let html='';
-    html+='<div class="emp-stat"><span>Planètes contrôlées</span><span class="v">'+nbPlanetes+'</span></div>';
+    html+='<div class="emp-stat"><span>Controlled planets</span><span class="v">'+nbPlanetes+'</span></div>';
     html+='<div class="emp-stat"><span>Ressources produites</span><span class="v">'+keys.length+'</span></div>';
     const exo=keys.filter(k=>(RES_META[k]?.tier||0)>=5);
-    if(exo.length){ html+='<div class="emp-stat"><span>Exotiques détenues</span><span class="v" style="color:#b088e0">'+exo.map(k=>RES_META[k].label).join(', ')+'</span></div>'; }
+    if(exo.length){ html+='<div class="emp-stat"><span>Exotics held</span><span class="v" style="color:#b088e0">'+exo.map(k=>RES_META[k].label).join(', ')+'</span></div>'; }
     html+='<div class="emp-section">Stock & production</div>';
-    if(keys.length===0){ html+='<div style="color:#5b6b8a;font-size:12px;padding:8px;">Aucune ressource. Colonise une planète pour produire.</div>'; }
+    if(keys.length===0){ html+='<div style="color:#5b6b8a;font-size:12px;padding:8px;">No resources. Colonize a planet to produce.</div>'; }
     else { keys.sort((a,b)=>(RES_META[b]?.tier||0)-(RES_META[a]?.tier||0) || (STOCK[b]+(PROD_H[b]||0)*ecoule)-(STOCK[a]+(PROD_H[a]||0)*ecoule));
       for(const k of keys){ const m=RES_META[k]; if(!m) continue; const qte=(STOCK[k]||0)+(PROD_H[k]||0)*ecoule; const tcol=TIER_COL_EMP[m.tier];
         html+='<div class="emp-res"><span class="l">'+elemPill(k,30)+nomRes(k)+'<span class="emp-tier-label" style="color:'+tcol+';background:'+tcol+'22;">'+TIER_NOM[m.tier]+'</span></span><span class="r"><span class="q">'+Math.floor(qte).toLocaleString('fr-FR')+'</span>'+(PROD_H[k]?'<div class="p">+'+PROD_H[k].toFixed(PROD_H[k]<1?2:0)+'/h</div>':'')+'</span></div>';
       }
     }
     const mp=mesPlanetes();
-    if(mp.length){ html+='<div class="emp-section">Production par planète</div>';
+    if(mp.length){ html+='<div class="emp-section">Production per planet</div>';
       for(const it of mp){ const prod=prodPlanete(it.addr); const lignes=Object.keys(prod).sort((a,b)=>(RES_META[b]?.tier||0)-(RES_META[a]?.tier||0));
         html+='<div style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,0.03);border-radius:8px;"><div style="font-size:12.5px;color:#fff;font-weight:500;margin-bottom:6px;">'+(it.origine?'⌂ ':'')+nomAffiche(it.p)+' <span style="color:#7a8aa5;font-weight:400;font-style:italic;font-size:11px;">'+nomScientifique(it.addr)+'</span></div><div style="display:flex;flex-wrap:wrap;gap:6px;">'+lignes.map(k=>{ const m=RES_META[k]; return '<span style="font-size:11px;color:#bfc8d8;display:inline-flex;align-items:center;gap:4px;">'+elemPill(k,20)+m.label+' <span style="color:#7ac79a;">+'+prod[k].toFixed(prod[k]<1?2:0)+'</span></span>'; }).join('')+'</div></div>';
       }
     }
     el.innerHTML=html;
   }
-  function nomRes(k){ const l={fer:'Fer',silicates:'Silicates',aluminium:'Aluminium',carbone:'Carbone',eau:'Eau',biomasse:'Biomasse',hydrogene:'Hydrogène',solaire:'Énergie solaire',cuivre:'Cuivre',nickel:'Nickel',zinc:'Zinc',plomb:'Plomb',etain:'Étain',soufre:'Soufre',methane:'Méthane',titane:'Titane',cobalt:'Cobalt',lithium:'Lithium',cristaux:'Cristaux',helium3:'Hélium-3',argent:'Argent',uranium:'Uranium',thorium:'Thorium',terres_rares:'Terres rares',gaz_exo:'Gaz exotiques',or:'Or',platine:'Platine',palladium:'Palladium',cristaux_exo:'Cristaux exotiques',antimatiere:'Antimatière',metamateriaux:'Métamatériaux'}; return l[k]||k; }
+  function nomRes(k){ const l={fer:'Iron',silicates:'Silicates',aluminium:'Aluminum',carbone:'Carbon',eau:'Water',biomasse:'Biomass',hydrogene:'Hydrogen',solaire:'Solar energy',cuivre:'Copper',nickel:'Nickel',zinc:'Zinc',plomb:'Lead',etain:'Tin',soufre:'Sulfur',methane:'Methane',titane:'Titanium',cobalt:'Cobalt',lithium:'Lithium',cristaux:'Crystals',helium3:'Helium-3',argent:'Silver',uranium:'Uranium',thorium:'Thorium',terres_rares:'Rare earths',gaz_exo:'Gaz exotiques',or:'Gold',platine:'Platinum',palladium:'Palladium',cristaux_exo:'Cristaux exotiques',antimatiere:'Antimatter',metamateriaux:'Metamaterials'}; return l[k]||k; }
   window.majEmpire=majEmpire;
   let empireOuvert=false;
   document.getElementById('btn-empire').addEventListener('click',()=>{
@@ -894,7 +894,7 @@ function demarrerJeu(){
     if(empireOuvert){ chargerStock().then(majEmpire); majEmpire(); }
   });
   document.getElementById('empire-close').addEventListener('click',()=>{ document.getElementById('panel-empire').style.display='none'; empireOuvert=false; });
-  // rafraîchir l'empire en direct s'il est ouvert
+  // rafraîchir the empire live i'il est ouvert
   setInterval(()=>{ if(empireOuvert) majEmpire(); },1000);
 
   // ============================================================
@@ -933,7 +933,7 @@ function demarrerJeu(){
   function majConstruction(){
     const el=document.getElementById('constr-content'); if(!el||!BAT_PLANETE) return;
     let html=selecteurVue();
-    // construction en cours (toujours visible en haut)
+    // construction en cours (toudays visible en haut)
     if(BAT_PLANETE.construction){
       const c=BAT_PLANETE.construction; const meta=BAT_META[c.code];
       const fin=new Date(c.fin).getTime(); const reste=Math.max(0,fin-Date.now());
@@ -953,17 +953,17 @@ function demarrerJeu(){
       html+='<div style="background:'+(deficit?'#2a1410':'#0d1726')+';border:1px solid '+col+'55;border-radius:12px;padding:11px 13px;margin-bottom:13px;">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">'+
         '<span style="font-size:12px;color:#cdd6e5;font-weight:500;display:flex;align-items:center;gap:6px;">'+
-        '<svg width="15" height="15" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 9 L13 9 Z" fill="'+col+'" opacity="0.85"/></svg>Énergie</span>'+
+        '<svg width="15" height="15" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 9 L13 9 Z" fill="'+col+'" opacity="0.85"/></svg>Energy</span>'+
         '<span style="font-size:12px;color:'+col+';font-weight:600;">'+Math.round(en.consommation)+' / '+Math.round(en.production)+'</span></div>'+
         '<div style="height:8px;background:#ffffff10;border-radius:4px;overflow:hidden;"><div style="height:100%;width:'+pct.toFixed(0)+'%;background:'+col+';border-radius:4px;transition:width 0.5s;"></div></div>'+
-        (deficit?'<div style="font-size:10.5px;color:#ff9b7a;margin-top:6px;">⚠ Déficit énergétique : production ralentie à '+Math.round(en.rendement*100)+'%. Construis une centrale.</div>':'')+
+        (deficit?'<div style="font-size:10.5px;color:#ff9b7a;margin-top:6px;">⚠ Energy deficit: production slowed to '+Math.round(en.rendement*100)+'%. Build a power plant.</div>':'')+
         '</div>';
     }
     // onglets de categorie
-    const onglets=[['extraction','Extraction'],['energie','Énergie'],['stockage','Stockage'],['avance','Avancé']];
+    const onglets=[['extraction','Extraction'],['energie','Energy'],['stockage','Storage'],['avance','Advanced']];
     html+='<div style="display:flex;gap:6px;margin-bottom:13px;flex-wrap:wrap;">';
     // commandement accessible via un onglet "Base"
-    html+='<span class="cons-tab" data-tab="central" style="font-size:11px;padding:5px 11px;border-radius:20px;cursor:pointer;'+(CONSTR_ONGLET==='central'?'background:#88878022;color:#cdd6e5;border:1px solid #88878066;':'background:transparent;color:#7a8aa5;border:1px solid #2a3a52;')+'">Base</span>';
+    html+='<span class="cons-tab" data-tab="central" style="font-size:11px;padding:5px 11px;border-radius:20px;cursor:pointer;'+(CONSTR_ONGLET==='central'?'background:#88878022;color:#cdd6e5;border:1px solid #88878066;':'background:transparent;color:#7a8aa5;border:1px solid #2a3a52;')+'">Core</span>';
     for(const [key,label] of onglets){ const actif=CONSTR_ONGLET===key;
       const col={extraction:'#1d9e75',energie:'#ba7517',stockage:'#378add',avance:'#d85a30'}[key];
       html+='<span class="cons-tab" data-tab="'+key+'" style="font-size:11px;padding:5px 11px;border-radius:20px;cursor:pointer;'+(actif?'background:'+col+'22;color:'+col+';border:1px solid '+col+'66;':'background:transparent;color:#7a8aa5;border:1px solid #2a3a52;')+'">'+label+'</span>';
@@ -993,11 +993,11 @@ function demarrerJeu(){
         '</div></div>'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:11px;padding-top:10px;border-top:1px solid #ffffff11;">'+
         '<div style="display:flex;gap:9px;align-items:center;font-size:11px;color:'+(payable?'#bfc8d8':'#8295b0')+';flex-wrap:wrap;">'+
-        (max?'<span style="color:'+meta.col+';">Niveau maximum atteint</span>':coutLisible(d.coutProchain)+'<span style="color:#7a8aa5;">⏱ '+tempsLisible(d.tempsProchain)+'</span>')+'</div>';
+        (max?'<span style="color:'+meta.col+';">Maximum level reached</span>':coutLisible(d.coutProchain)+'<span style="color:#7a8aa5;">⏱ '+tempsLisible(d.tempsProchain)+'</span>')+'</div>';
       if(max) html+='<button class="bat-btn max" disabled style="padding:7px 16px;border-radius:8px;border:none;background:'+meta.col+'22;color:'+meta.col+';font-size:12px;font-weight:600;">Max</button>';
-      else if(enCours) html+='<button disabled style="padding:7px 16px;border-radius:8px;border:none;background:#1a2434;color:#5b6b8a;font-size:12px;font-weight:600;">En cours</button>';
+      else if(enCours) html+='<button disabled style="padding:7px 16px;border-radius:8px;border:none;background:#1a2434;color:#5b6b8a;font-size:12px;font-weight:600;">In progress</button>';
       else { const actMaj=!verr&&payable&&!BAT_PLANETE.construction;
-        html+='<button data-code="'+code+'" '+(actMaj?'':'disabled')+' style="padding:7px 16px;border-radius:8px;border:none;'+(actMaj?'background:linear-gradient(90deg,'+meta.col+','+meta.col+'cc);color:#fff;cursor:pointer;':'background:#1a2434;color:#5b6b8a;cursor:not-allowed;')+'font-size:12px;font-weight:600;">'+(d.niveau>0?'Améliorer':'Construire')+'</button>'; }
+        html+='<button data-code="'+code+'" '+(actMaj?'':'disabled')+' style="padding:7px 16px;border-radius:8px;border:none;'+(actMaj?'background:linear-gradient(90deg,'+meta.col+','+meta.col+'cc);color:#fff;cursor:pointer;':'background:#1a2434;color:#5b6b8a;cursor:not-allowed;')+'font-size:12px;font-weight:600;">'+(d.niveau>0?'Upgrade':'Build')+'</button>'; }
       html+='</div></div>';
     }
     el.innerHTML=html;
@@ -1006,15 +1006,15 @@ function demarrerJeu(){
     el.querySelectorAll('.cons-tab').forEach(t=>{ t.onclick=()=>{ CONSTR_ONGLET=t.dataset.tab; majConstruction(); }; });
   }
   function prerequisTexte(code){
-    const P={raffinerie:'Requiert Extracteur niv 3',collecteur:'Requiert Centrale niv 3',caserne:'Requiert Entrepôt niv 2',laboratoire:'Requiert Extracteur 5 + Centrale 3',chantier:'Requiert Centrale niv 3',arsenal:'Requiert Labo + Chantier + Caserne'};
-    return P[code]||'Prérequis manquant';
+    const P={raffinerie:'Requires Extractor lvl 3',collecteur:'Requires Power Plant lvl 3',caserne:'Requires Warehouse lvl 2',laboratoire:'Requires Extractor 5 + Power Plant 3',chantier:'Requires Power Plant lvl 3',arsenal:'Requires Lab + Shipyard + Barracks'};
+    return P[code]||'Missing prerequisite';
   }
   // selecteur de vue (Batiments / Flotte) insere en haut du panneau
   function selecteurVue(){
     const b=VUE_GESTION==='batiments', f=VUE_GESTION==='flotte';
     return '<div style="display:flex;gap:8px;margin-bottom:14px;background:#0a1120;border-radius:10px;padding:4px;">'+
-      '<button id="vue-bat" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;'+(b?'background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;':'background:transparent;color:#7a8aa5;')+'">⚒ Bâtiments</button>'+
-      '<button id="vue-flotte" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;'+(f?'background:linear-gradient(90deg,#b04020,#d85a30);color:#fff;':'background:transparent;color:#7a8aa5;')+'">🚀 Flotte</button></div>';
+      '<button id="vue-bat" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;'+(b?'background:linear-gradient(90deg,#2a8a5a,#3aa56a);color:#fff;':'background:transparent;color:#7a8aa5;')+'">⚒ Buildings</button>'+
+      '<button id="vue-flotte" style="flex:1;padding:8px;border-radius:8px;border:none;font-size:12px;font-weight:600;cursor:pointer;'+(f?'background:linear-gradient(90deg,#b04020,#d85a30);color:#fff;':'background:transparent;color:#7a8aa5;')+'">🚀 Fleet</button></div>';
   }
   function brancherSelecteurVue(el){
     const vb=el.querySelector('#vue-bat'), vf=el.querySelector('#vue-flotte');
@@ -1027,7 +1027,7 @@ function demarrerJeu(){
     if(!VAISSEAUX_PLANETE.aChantier){
       html+='<div style="background:#0e1726;border:1px solid #1f2c3f;border-radius:12px;padding:18px;text-align:center;color:#8295b0;font-size:12px;">'+
         '<div style="font-size:30px;margin-bottom:8px;opacity:0.5;">🛰</div>'+
-        'Construis un <b style="color:#f0997b;">Chantier spatial</b> (onglet Avancé) pour produire des vaisseaux.</div>';
+        'Build a <b style="color:#f0997b;">Chantier spatial</b> (Advanced tab) to produce ships.</div>';
       el.innerHTML=html; brancherSelecteurVue(el); return;
     }
     // chantier en cours
@@ -1037,14 +1037,14 @@ function demarrerJeu(){
       html+='<div style="background:#1a1020;border:1px solid '+meta.col+'44;border-radius:12px;padding:12px;margin-bottom:13px;">'+
         '<div style="display:flex;gap:11px;align-items:center;">'+
         '<div style="width:40px;height:40px;border-radius:9px;background:'+meta.col+'18;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+vaiIcone(c.type,30)+'</div>'+
-        '<div style="flex:1;"><div style="font-size:13px;color:#fff;font-weight:500;">Production : '+c.nombre+' × '+meta.nom+'</div>'+
-        '<div style="font-size:11px;color:'+meta.col+';margin-top:3px;">⏱ '+tempsLisible(Math.ceil(reste/1000))+' restant</div></div></div></div>';
+        '<div style="flex:1;"><div style="font-size:13px;color:#fff;font-weight:500;">Producing: '+c.nombre+' × '+meta.nom+'</div>'+
+        '<div style="font-size:11px;color:'+meta.col+';margin-top:3px;">⏱ '+tempsLisible(Math.ceil(reste/1000))+' left</div></div></div></div>';
     }
     // vaisseaux stationnes
     const flotte=VAISSEAUX_PLANETE.flotte||{};
     const total=Object.values(flotte).reduce((s,n)=>s+n,0);
-    html+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin:4px 0 8px;">Flotte stationnée'+(total>0?' ('+total+' vaisseaux)':'')+'</div>';
-    if(total===0){ html+='<div style="font-size:11px;color:#6a7a95;margin-bottom:12px;font-style:italic;">Aucun vaisseau en orbite.</div>'; }
+    html+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin:4px 0 8px;">Stationed fleet'+(total>0?' ('+total+' ships)':'')+'</div>';
+    if(total===0){ html+='<div style="font-size:11px;color:#6a7a95;margin-bottom:12px;font-style:italic;">No ships in orbit.</div>'; }
     else { for(const type of VAI_ORDRE){ if(!flotte[type]) continue; const meta=VAI_META[type]; const v=VAISSEAUX_PLANETE.types[type];
       html+='<div style="display:flex;align-items:center;gap:11px;background:#0e1726;border:1px solid '+meta.col+'33;border-radius:10px;padding:9px;margin-bottom:7px;">'+
         '<div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+vaiIcone(type,30)+'</div>'+
@@ -1052,7 +1052,7 @@ function demarrerJeu(){
         '<div style="font-size:10px;color:#8295b0;">⚔ '+v.attaque+' · 🛡 '+v.blindage+' · ➤ '+v.vitesse+'</div></div></div>';
     }}
     // production de nouveaux vaisseaux
-    html+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin:14px 0 8px;">Construire des vaisseaux</div>';
+    html+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin:14px 0 8px;">Build ships</div>';
     for(const type of VAI_ORDRE){ const meta=VAI_META[type]; const v=VAISSEAUX_PLANETE.types[type];
       const occupe=!!VAISSEAUX_PLANETE.chantier;
       html+='<div style="background:#0e1726;border:1px solid '+meta.col+'33;border-radius:12px;padding:11px;margin-bottom:9px;">'+
@@ -1063,7 +1063,7 @@ function demarrerJeu(){
         '<div style="font-size:10px;color:#bfc8d8;margin-top:4px;">'+coutLisible(v.cout)+' · ⏱ '+tempsLisible(v.temps)+'/u</div></div>'+
         '<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">'+
         '<input type="number" min="1" max="500" value="1" id="qte-'+type+'" '+(occupe?'disabled':'')+' style="width:54px;padding:5px;border-radius:6px;border:1px solid #2a3a52;background:#0a1120;color:#fff;font-size:12px;text-align:center;">'+
-        '<button data-type="'+type+'" '+(occupe?'disabled':'')+' style="padding:6px 12px;border-radius:7px;border:none;font-size:11px;font-weight:600;'+(occupe?'background:#1a2434;color:#5b6b8a;cursor:not-allowed;':'background:linear-gradient(90deg,'+meta.col+','+meta.col+'cc);color:#fff;cursor:pointer;')+'">Produire</button>'+
+        '<button data-type="'+type+'" '+(occupe?'disabled':'')+' style="padding:6px 12px;border-radius:7px;border:none;font-size:11px;font-weight:600;'+(occupe?'background:#1a2434;color:#5b6b8a;cursor:not-allowed;':'background:linear-gradient(90deg,'+meta.col+','+meta.col+'cc);color:#fff;cursor:pointer;')+'">Build</button>'+
         '</div></div></div>';
     }
     el.innerHTML=html;
@@ -1075,8 +1075,8 @@ function demarrerJeu(){
     try{ const r=await fetch('/api/produire',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON,addr:BAT_ADDR_OUVERTE,type,nombre})});
       const d=await r.json();
       if(d.succes){ await chargerStock(); await chargerVaisseaux(BAT_ADDR_OUVERTE); majFlotte(); }
-      else { alert(d.message||"Production impossible"); }
-    }catch(e){ alert("Serveur injoignable"); }
+      else { alert(d.message||"Production failed"); }
+    }catch(e){ alert("Server unreachable"); }
   }
   function galaxyTempsClient(code,niv){
     // reproduit tempsBatiment cote client pour la barre (approx, le serveur fait foi)
@@ -1088,8 +1088,8 @@ function demarrerJeu(){
     try{ const r=await fetch('/api/construire',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON,addr:BAT_ADDR_OUVERTE,code})});
       const d=await r.json();
       if(d.succes){ await chargerStock(); await chargerBatiments(BAT_ADDR_OUVERTE); majConstruction(); }
-      else { alert(d.message||"Construction impossible"); }
-    }catch(e){ alert("Serveur injoignable"); }
+      else { alert(d.message||"Construction failed"); }
+    }catch(e){ alert("Server unreachable"); }
   }
   window.ouvrirConstruction=ouvrirConstruction;
   // rafraîchir la barre de progression + recharger à la fin
@@ -1161,9 +1161,9 @@ function demarrerJeu(){
     if(hov&&!mouse.down){ ctx.strokeStyle='rgba(255,255,255,0.8)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(hov.px,hov.py,Math.max(10,hov.scr+7),0,6.28); ctx.stroke(); canvas.style.cursor='pointer'; }
     else if(hoverSys&&!mouse.down){ const sp=w2s(hoverSys.x,hoverSys.y); ctx.strokeStyle='rgba(120,180,255,0.6)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(sp.x,sp.y,Math.max(14,hoverSys.starR*hoverSys.star.rFactor*bs*2.6),0,6.28); ctx.stroke(); canvas.style.cursor='pointer'; }
     else if(!mouse.down){ canvas.style.cursor='grab'; }
-    if(cam.zoom>=LOD_SYSTEM){ scaleBadge.textContent='Système'+(hoverSys?' '+hoverSys.name:''); } else if(cam.zoom>=LOD_APPROACH){ scaleBadge.textContent='Approche'; } else { scaleBadge.textContent='Galaxie'; }
+    if(cam.zoom>=LOD_SYSTEM){ scaleBadge.textContent='System'+(hoverSys?' '+hoverSys.name:''); } else if(cam.zoom>=LOD_APPROACH){ scaleBadge.textContent='Approche'; } else { scaleBadge.textContent='Galaxy'; }
     frameCount++; if(now-fpsT>500){ fps=Math.round(frameCount*1000/(now-fpsT)); frameCount=0; fpsT=now; }
-    perfBadge.textContent=vis+' systèmes · '+fps+' fps';
+    perfBadge.textContent=vis+' systems · '+fps+' fps';
     if(hov){ info.style.opacity='1'; const ow=POSSESSIONS[hov.p.addr]; info.innerHTML='<strong>'+hov.p.name+'</strong> · '+hov.p.def.label+(ow?' · <span style="color:'+couleurJoueur(ow.joueur)+'">'+ow.joueur+'</span>':'')+' — clic'; }
     else if(hoverSys){ info.style.opacity='1'; info.innerHTML='<strong>'+hoverSys.name+'</strong> · <span style="color:'+hoverSys.star.core+'">'+hoverSys.star.label+'</span>'; }
     else { info.style.opacity='0'; }
