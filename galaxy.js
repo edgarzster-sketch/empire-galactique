@@ -387,3 +387,154 @@ function bilanEnergie(niveaux) {
 }
 
 module.exports.bilanEnergie = bilanEnergie;
+
+// ============================================================
+//  VAISSEAUX & FLOTTES (v1.0)
+//  4 types : chasseur, croiseur, transport, colonisateur.
+//  Stats : attaque, blindage (PV), vitesse (u/s pour le trajet),
+//          capacite (transport de ressources), cout, temps, energie.
+//  Construits au chantier spatial.
+// ============================================================
+const VAISSEAUX = {
+  chasseur: {
+    nom: "Chasseur", attaque: 12, blindage: 40, vitesse: 1400, capacite: 0,
+    cout: { fer: 80, aluminium: 40 }, temps: 30, energie: 2,
+    desc: "Rapide et bon marché. Redoutable en nombre."
+  },
+  croiseur: {
+    nom: "Croiseur", attaque: 60, blindage: 280, vitesse: 800, capacite: 50,
+    cout: { fer: 400, titane: 120, cuivre: 80 }, temps: 180, energie: 12,
+    desc: "Vaisseau lourd. Puissant et résistant."
+  },
+  transport: {
+    nom: "Transport", attaque: 2, blindage: 100, vitesse: 1000, capacite: 2000,
+    cout: { fer: 200, aluminium: 150 }, temps: 90, energie: 5,
+    desc: "Transporte des ressources. Combat faible."
+  },
+  colonisateur: {
+    nom: "Colonisateur", attaque: 0, blindage: 150, vitesse: 700, capacite: 500,
+    cout: { fer: 500, silicates: 300, titane: 100 }, temps: 300, energie: 15,
+    desc: "Fonde une colonie sur une planète libre à distance."
+  }
+};
+
+// cout total d'un lot de vaisseaux : {type: nombre}
+function coutFlotte(composition) {
+  const total = {};
+  for (const type in composition) {
+    const n = composition[type]; const v = VAISSEAUX[type];
+    if (!v || n <= 0) continue;
+    for (const r in v.cout) total[r] = (total[r] || 0) + v.cout[r] * n;
+  }
+  return total;
+}
+
+// temps de construction total (les vaisseaux se construisent en file)
+function tempsFlotte(composition) {
+  let t = 0;
+  for (const type in composition) {
+    const n = composition[type]; const v = VAISSEAUX[type];
+    if (!v || n <= 0) continue;
+    t += v.temps * n;
+  }
+  return t;
+}
+
+// puissance d'attaque et blindage total d'une flotte
+function puissanceFlotte(composition) {
+  let attaque = 0, blindage = 0;
+  for (const type in composition) {
+    const n = composition[type] || 0; const v = VAISSEAUX[type];
+    if (!v) continue;
+    attaque += v.attaque * n; blindage += v.blindage * n;
+  }
+  return { attaque, blindage };
+}
+
+// vitesse d'une flotte = celle du vaisseau le plus lent
+function vitesseFlotte(composition) {
+  let vmin = Infinity;
+  for (const type in composition) {
+    if ((composition[type] || 0) <= 0) continue;
+    const v = VAISSEAUX[type]; if (v) vmin = Math.min(vmin, v.vitesse);
+  }
+  return vmin === Infinity ? 1000 : vmin;
+}
+
+module.exports.VAISSEAUX = VAISSEAUX;
+module.exports.coutFlotte = coutFlotte;
+module.exports.tempsFlotte = tempsFlotte;
+module.exports.puissanceFlotte = puissanceFlotte;
+module.exports.vitesseFlotte = vitesseFlotte;
+
+// ============================================================
+//  RESOLUTION DE COMBAT (v1.0)
+//  Combat automatique avec pertes des deux cotes.
+//  Principe : plusieurs rounds. A chaque round, chaque camp
+//  inflige son attaque totale au blindage adverse. Les pertes
+//  sont reparties sur les vaisseaux (les plus fragiles tombent
+//  en premier). Le combat s'arrete quand un camp est aneanti
+//  ou apres 8 rounds (le camp le plus fort l'emporte).
+//  defenseBonus : points d'attaque/blindage ajoutes au defenseur
+//  (vient de la caserne orbitale).
+// ============================================================
+function resoudreCombat(attaquant, defenseur, defenseBonus) {
+  // copies de travail {type: nombre}
+  const A = Object.assign({}, attaquant);
+  const D = Object.assign({}, defenseur);
+  defenseBonus = defenseBonus || 0;
+
+  // PV "courants" stockes globalement par camp, repartis a la fin en pertes entieres
+  function totalBlindage(camp, bonus) {
+    let b = bonus || 0;
+    for (const t in camp) b += (VAISSEAUX[t] ? VAISSEAUX[t].blindage : 0) * (camp[t] || 0);
+    return b;
+  }
+  function totalAttaque(camp, bonus) {
+    let a = bonus || 0;
+    for (const t in camp) a += (VAISSEAUX[t] ? VAISSEAUX[t].attaque : 0) * (camp[t] || 0);
+    return a;
+  }
+  // applique des degats a un camp : detruit des vaisseaux (plus fragiles d'abord)
+  function appliquerPertes(camp, degats) {
+    const ordre = Object.keys(camp).sort((x, y) =>
+      (VAISSEAUX[x] ? VAISSEAUX[x].blindage : 0) - (VAISSEAUX[y] ? VAISSEAUX[y].blindage : 0));
+    for (const t of ordre) {
+      if (degats <= 0) break;
+      const pv = VAISSEAUX[t] ? VAISSEAUX[t].blindage : 1;
+      while (camp[t] > 0 && degats >= pv) { camp[t]--; degats -= pv; }
+    }
+    return degats;
+  }
+
+  let rounds = 0;
+  while (rounds < 8) {
+    const aAtt = totalAttaque(A, 0);
+    const dAtt = totalAttaque(D, defenseBonus);
+    const aBli = totalBlindage(A, 0);
+    const dBli = totalBlindage(D, defenseBonus);
+    if (aBli <= 0 || dBli <= 0) break;
+    if (aAtt <= 0 && dAtt <= 0) break;
+    // les deux frappent simultanement
+    appliquerPertes(A, dAtt);
+    appliquerPertes(D, aAtt);
+    rounds++;
+    // arret si un camp est vide
+    const aReste = Object.values(A).reduce((s, n) => s + n, 0);
+    const dReste = Object.values(D).reduce((s, n) => s + n, 0);
+    if (aReste <= 0 || dReste <= 0) break;
+  }
+
+  const aReste = Object.values(A).reduce((s, n) => s + n, 0);
+  const dReste = Object.values(D).reduce((s, n) => s + n, 0);
+  let vainqueur;
+  if (aReste > 0 && dReste <= 0) vainqueur = "attaquant";
+  else if (dReste > 0 && aReste <= 0) vainqueur = "defenseur";
+  else {
+    // les deux survivent (8 rounds) : le plus de blindage restant gagne
+    vainqueur = totalBlindage(A, 0) >= totalBlindage(D, defenseBonus) ? "attaquant" : "defenseur";
+  }
+  return { vainqueur, attaquantRestant: A, defenseurRestant: D, rounds };
+}
+
+module.exports.resoudreCombat = resoudreCombat;

@@ -98,7 +98,27 @@ async function preparerBase() {
       fin TIMESTAMPTZ NOT NULL
     )
   `);
-  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions OK");
+  // vaisseaux stationnes sur une planete : une ligne par planete+type
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vaisseaux (
+      addr TEXT NOT NULL,
+      type TEXT NOT NULL,
+      nombre INTEGER DEFAULT 0,
+      PRIMARY KEY (addr, type)
+    )
+  `);
+  // file de construction de vaisseaux au chantier (une par planete)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS chantiers (
+      addr TEXT PRIMARY KEY,
+      joueur TEXT NOT NULL,
+      type TEXT NOT NULL,
+      nombre INTEGER NOT NULL,
+      debut TIMESTAMPTZ DEFAULT NOW(),
+      fin TIMESTAMPTZ NOT NULL
+    )
+  `);
+  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions, vaisseaux, chantiers OK");
 }
 
 // helper : une adresse est-elle deja occupee ?
@@ -581,7 +601,98 @@ app.post("/api/construire", async (req, res) => {
   } finally { client.release(); }
 });
 
-app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.8" }));
+// ============================================================
+//  VAISSEAUX : production au chantier spatial
+// ============================================================
+// finalise la construction de vaisseaux terminee d'une planete
+async function finaliserChantier(addr) {
+  const c = await pool.query("SELECT * FROM chantiers WHERE addr=$1 AND fin <= NOW()", [addr]);
+  for (const ch of c.rows) {
+    await pool.query(
+      `INSERT INTO vaisseaux (addr, type, nombre) VALUES ($1,$2,$3)
+       ON CONFLICT (addr, type) DO UPDATE SET nombre = vaisseaux.nombre + $3`,
+      [addr, ch.type, ch.nombre]
+    );
+    await pool.query("DELETE FROM chantiers WHERE addr=$1", [addr]);
+  }
+}
+
+// vaisseaux stationnes sur une planete -> {type: nombre}
+async function vaisseauxDe(addr) {
+  const r = await pool.query("SELECT type, nombre FROM vaisseaux WHERE addr=$1 AND nombre > 0", [addr]);
+  const out = {};
+  for (const row of r.rows) out[row.type] = row.nombre;
+  return out;
+}
+
+// GET vaisseaux + chantier en cours d'une planete
+app.get("/api/vaisseaux", async (req, res) => {
+  const addr = (req.query.addr || "").trim();
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  try {
+    await finaliserChantier(addr);
+    const flotte = await vaisseauxDe(addr);
+    const enCours = await pool.query("SELECT type, nombre, fin FROM chantiers WHERE addr=$1", [addr]);
+    // le chantier spatial est-il construit ?
+    const niveaux = await niveauxBatiments(addr);
+    const aChantier = (niveaux.chantier || 0) > 0;
+    res.json({ addr, flotte, aChantier, types: galaxy.VAISSEAUX, chantier: enCours.rows.length ? enCours.rows[0] : null });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST produire des vaisseaux (necessite un chantier spatial)
+app.post("/api/produire", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  const addr = (req.body.addr || "").trim();
+  const type = (req.body.type || "").trim();
+  const nombre = Math.max(1, Math.min(500, parseInt(req.body.nombre, 10) || 0));
+  if (!galaxy.VAISSEAUX[type]) return res.status(400).json({ erreur: "Type inconnu" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  const client = await pool.connect();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Non authentifié" });
+    await client.query("BEGIN");
+    const poss = await client.query("SELECT joueur FROM possessions WHERE addr=$1 FOR UPDATE", [addr]);
+    if (!poss.rows.length || poss.rows[0].joueur !== pseudo) {
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Cette planète ne vous appartient pas." });
+    }
+    // chantier spatial requis
+    const nivR = await client.query("SELECT code, niveau FROM batiments WHERE addr=$1", [addr]);
+    const niv = {}; for (const row of nivR.rows) niv[row.code] = row.niveau;
+    if ((niv.chantier || 0) <= 0) {
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Un chantier spatial est requis sur cette planète." });
+    }
+    // une seule production de vaisseaux a la fois
+    const enCours = await client.query("SELECT 1 FROM chantiers WHERE addr=$1", [addr]);
+    if (enCours.rows.length) {
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Le chantier est déjà occupé." });
+    }
+    // cout
+    const composition = {}; composition[type] = nombre;
+    const cout = galaxy.coutFlotte(composition);
+    for (const r in cout) {
+      const s = await client.query("SELECT quantite FROM stocks WHERE joueur=$1 AND ressource=$2", [pseudo, r]);
+      const q = s.rows.length ? s.rows[0].quantite : 0;
+      if (q < cout[r]) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Ressources insuffisantes (" + r + ")." }); }
+    }
+    for (const r in cout) {
+      await client.query("UPDATE stocks SET quantite = quantite - $1 WHERE joueur=$2 AND ressource=$3", [cout[r], pseudo, r]);
+    }
+    const tempsSec = galaxy.tempsFlotte(composition);
+    await client.query(
+      "INSERT INTO chantiers (addr, joueur, type, nombre, fin) VALUES ($1,$2,$3,$4, NOW() + ($5 || ' seconds')::interval)",
+      [addr, pseudo, type, nombre, tempsSec]
+    );
+    await client.query("COMMIT");
+    res.json({ succes: true, type, nombre, tempsSec });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(()=>{});
+    res.status(500).json({ erreur: e.message });
+  } finally { client.release(); }
+});
+
+app.get("/sante", (req, res) => res.json({ statut: "ok", version: "0.9" }));
 
 preparerBase()
   .then(() => app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`)))
