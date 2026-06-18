@@ -150,11 +150,24 @@
     <h3 id="constr-titre">Planet management <span class="pp-close2" id="constr-close">✕</span></h3>
     <div id="constr-content"></div>
   </div>
+  <div id="banniere-envoi" style="display:none;position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(42,106,170,0.95);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,0.5);">
+    🎯 Click a destination planet &nbsp;<span onclick="window.annulerEnvoiFlotte&&window.annulerEnvoiFlotte()" style="cursor:pointer;text-decoration:underline;opacity:0.85;">cancel</span>
+  </div>
+  <div id="dialogue-envoi" style="display:none;position:fixed;inset:0;z-index:25;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+    <div style="background:linear-gradient(165deg,rgba(16,22,36,0.99),rgba(10,13,24,0.99));border:1px solid #2c4e7e;border-radius:16px;padding:20px;width:340px;max-width:92vw;box-shadow:0 20px 70px rgba(0,0,0,0.7);">
+      <div style="font-size:15px;font-weight:600;color:#fff;margin-bottom:14px;">🚀 Send fleet</div>
+      <div id="envoi-corps"></div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button onclick="annulerDialogueEnvoi()" style="flex:1;padding:10px;border-radius:9px;border:1px solid #2a3a52;background:transparent;color:#9bb8ff;font-size:13px;cursor:pointer;">Cancel</button>
+        <button onclick="confirmerEnvoi()" style="flex:1;padding:10px;border-radius:9px;border:none;background:linear-gradient(90deg,#2a6aaa,#3a8ad0);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">Launch</button>
+      </div>
+    </div>
+  </div>
   <div id="panel-profil">
     <h3 id="profil-titre">Profile <span class="pp-close2" id="profil-close">✕</span></h3>
     <div id="profil-content"></div>
   </div>
-  <div id="version"><span id="ver">v2.7</span> · English + admin account</div>
+  <div id="version"><span id="ver">v3.0</span> · fleet movement (send + travel)</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -182,6 +195,7 @@
 // ============================================================
 let GRAINE=20260614, MON_PSEUDO=null, MON_HOME=null, MA_COULEUR='#9bd5d0', MON_JETON=null;
 let POSSESSIONS={};   // addr -> {joueur, origine, nom_perso}
+let MES_FLOTTES=[];   // flottes en mouvement du joueur
 let COULEURS={};      // joueur -> couleur
 let PROFILS_CACHE={}; // pseudo -> profil (couleur, embleme...)
 
@@ -265,6 +279,7 @@ async function demarrerAvecSession(d){
   setInterval(chargerPossessions,4000);
   setInterval(chargerStock,15000);
   setInterval(majBandeauStock,1000);
+  chargerFlottes(); setInterval(chargerFlottes,3000);
   majBandeauStock();
 }
 
@@ -402,6 +417,12 @@ async function chargerPossessions(){
   try{ const r=await fetch('/api/possessions'); const d=await r.json();
     const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine,nom_perso:p.nom_perso}; }
     POSSESSIONS=map;
+  }catch(e){}
+}
+async function chargerFlottes(){
+  if(!MON_JETON) return;
+  try{ const r=await fetch('/api/flottes?jeton='+encodeURIComponent(MON_JETON)); const d=await r.json();
+    MES_FLOTTES=d.flottes||[];
   }catch(e){}
 }
 async function rafraichirJoueurs(){
@@ -1050,7 +1071,9 @@ function demarrerJeu(){
         '<div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">'+vaiIcone(type,30)+'</div>'+
         '<div style="flex:1;"><div style="font-size:13px;color:#fff;">'+meta.nom+' <b style="color:'+meta.col+';">× '+flotte[type]+'</b></div>'+
         '<div style="font-size:10px;color:#8295b0;">⚔ '+v.attaque+' · 🛡 '+v.blindage+' · ➤ '+v.vitesse+'</div></div></div>';
-    }}
+    }
+      html+='<button id="btn-send-fleet" style="width:100%;padding:10px;margin-bottom:6px;border-radius:9px;border:none;background:linear-gradient(90deg,#2a6aaa,#3a8ad0);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">🚀 Send fleet</button>';
+    }
     // production de nouveaux vaisseaux
     html+='<div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#5b6b8a;margin:14px 0 8px;">Build ships</div>';
     for(const type of VAI_ORDRE){ const meta=VAI_META[type]; const v=VAISSEAUX_PLANETE.types[type];
@@ -1069,7 +1092,60 @@ function demarrerJeu(){
     el.innerHTML=html;
     brancherSelecteurVue(el);
     el.querySelectorAll('button[data-type]').forEach(b=>{ b.onclick=()=>{ const t=b.dataset.type; const q=parseInt(document.getElementById('qte-'+t).value,10)||1; produireVaisseaux(t,q); }; });
+    const bs=document.getElementById('btn-send-fleet'); if(bs) bs.onclick=()=>demarrerSelectionDestination();
   }
+  // mode selection de destination : le joueur clique une planete sur la carte
+  let MODE_ENVOI=false; let FLOTTE_ORIGINE=null;
+  function demarrerSelectionDestination(){
+    MODE_ENVOI=true; FLOTTE_ORIGINE=BAT_ADDR_OUVERTE;
+    document.getElementById('panel-construction').style.display='none';
+    const banniere=document.getElementById('banniere-envoi');
+    banniere.style.display='block';
+  }
+  function annulerEnvoi(){ MODE_ENVOI=false; FLOTTE_ORIGINE=null; document.getElementById('banniere-envoi').style.display='none'; }
+  window.annulerEnvoiFlotte=annulerEnvoi;
+  window.estModeEnvoi=()=>MODE_ENVOI;
+  // appele quand une planete est cliquee en mode envoi
+  window.choisirDestination=function(destAddr){
+    if(!MODE_ENVOI||!FLOTTE_ORIGINE) return;
+    if(destAddr===FLOTTE_ORIGINE){ alert("Choose a different destination."); return; }
+    ouvrirDialogueEnvoi(FLOTTE_ORIGINE,destAddr);
+    annulerEnvoi();
+  };
+  function ouvrirDialogueEnvoi(origine,destination){
+    const flotte=(VAISSEAUX_PLANETE&&VAISSEAUX_PLANETE.flotte)||{};
+    const dlg=document.getElementById('dialogue-envoi'); const corps=document.getElementById('envoi-corps');
+    let html='<div style="font-size:12px;color:#8295b0;margin-bottom:12px;">From <b style="color:#cfe3ff;">'+origine+'</b> to <b style="color:#7cd0ff;">'+destination+'</b></div>';
+    let aDesVaisseaux=false;
+    for(const type of VAI_ORDRE){ if(!flotte[type]) continue; aDesVaisseaux=true; const meta=VAI_META[type];
+      html+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">'+
+        '<div style="width:30px;height:30px;flex-shrink:0;">'+vaiIcone(type,28)+'</div>'+
+        '<div style="flex:1;font-size:13px;color:#fff;">'+meta.nom+' <span style="color:#8295b0;font-size:11px;">(max '+flotte[type]+')</span></div>'+
+        '<input type="number" min="0" max="'+flotte[type]+'" value="0" id="env-'+type+'" style="width:60px;padding:6px;border-radius:6px;border:1px solid #2a3a52;background:#0a1120;color:#fff;text-align:center;font-size:13px;">'+
+        '<button data-all="'+type+'" style="padding:6px 9px;border-radius:6px;border:1px solid #2a3a52;background:#0a1120;color:#9bb8ff;font-size:11px;cursor:pointer;">All</button></div>';
+    }
+    if(!aDesVaisseaux) html+='<div style="color:#6a7a95;font-style:italic;">No ships available to send.</div>';
+    corps.innerHTML=html;
+    corps.querySelectorAll('button[data-all]').forEach(b=>{ b.onclick=()=>{ const t=b.dataset.all; document.getElementById('env-'+t).value=flotte[t]; }; });
+    dlg.dataset.origine=origine; dlg.dataset.destination=destination;
+    dlg.style.display='flex';
+  }
+  window.confirmerEnvoi=async function(){
+    const dlg=document.getElementById('dialogue-envoi');
+    const origine=dlg.dataset.origine, destination=dlg.dataset.destination;
+    const composition={};
+    for(const type of VAI_ORDRE){ const inp=document.getElementById('env-'+type); if(inp){ const n=parseInt(inp.value,10)||0; if(n>0) composition[type]=n; } }
+    if(Object.keys(composition).length===0){ alert("Select at least one ship."); return; }
+    try{ const r=await fetch('/api/envoyer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON,origine,destination,composition})});
+      const d=await r.json();
+      if(d.succes){ dlg.style.display='none'; await chargerFlottes(); await chargerVaisseaux(origine);
+        const mn=Math.floor(d.duree/60), sec=d.duree%60;
+        info.style.opacity='1'; info.innerHTML='🚀 Fleet en route — arrival in '+(mn>0?mn+'m ':'')+sec+'s';
+        setTimeout(()=>{ info.style.opacity='0'; },4000);
+      } else { alert(d.message||"Send failed"); }
+    }catch(e){ alert("Server unreachable"); }
+  };
+  window.annulerDialogueEnvoi=function(){ document.getElementById('dialogue-envoi').style.display='none'; };
   async function produireVaisseaux(type,nombre){
     if(!MON_JETON||!BAT_ADDR_OUVERTE) return;
     try{ const r=await fetch('/api/produire',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON,addr:BAT_ADDR_OUVERTE,type,nombre})});
@@ -1118,14 +1194,14 @@ function demarrerJeu(){
     cam.tzoom=Math.min(ZOOM_MAX,Math.max(ZOOM_MIN,cam.tzoom*f)); cam.zoom=cam.tzoom; const a=s2w(mouse.x,mouse.y);
     cam.tx+=b.x-a.x; cam.ty+=b.y-a.y; cam.x+=b.x-a.x; cam.y+=b.y-a.y; },{passive:false});
   canvas.addEventListener('mousedown',(e)=>{ mouse.down=true; mouse.dragged=false; mouse.lx=e.clientX; mouse.ly=e.clientY; canvas.style.cursor='grabbing'; });
-  window.addEventListener('mouseup',()=>{ if(mouse.down&&!mouse.dragged){ const h=planetAtCursor(); if(h) montrerPopup(h.p); else if(hoverSys){ cam.tx=hoverSys.x; cam.ty=hoverSys.y; cam.tzoom=Math.max(cam.tzoom,2.2); } } mouse.down=false; canvas.style.cursor='grab'; });
+  window.addEventListener('mouseup',()=>{ if(mouse.down&&!mouse.dragged){ const h=planetAtCursor(); if(h){ if(window.estModeEnvoi&&window.estModeEnvoi()){ window.choisirDestination(h.p.addr); } else montrerPopup(h.p); } else if(hoverSys){ cam.tx=hoverSys.x; cam.ty=hoverSys.y; cam.tzoom=Math.max(cam.tzoom,2.2); } } mouse.down=false; canvas.style.cursor='grab'; });
   canvas.addEventListener('mousemove',(e)=>{ const r=canvas.getBoundingClientRect(); mouse.x=e.clientX-r.left; mouse.y=e.clientY-r.top;
     if(mouse.down){ const dx=e.clientX-mouse.lx,dy=e.clientY-mouse.ly; if(Math.hypot(dx,dy)>3) mouse.dragged=true; cam.x-=dx/cam.zoom; cam.y-=dy/cam.zoom; cam.tx=cam.x; cam.ty=cam.y; mouse.lx=e.clientX; mouse.ly=e.clientY; } });
   canvas.addEventListener('mouseleave',()=>{ mouse.x=-999; mouse.y=-999; });
   let pinchD=0;
   canvas.addEventListener('touchstart',(e)=>{ if(e.touches.length===1){ mouse.down=true; mouse.dragged=false; const r=canvas.getBoundingClientRect(); mouse.lx=e.touches[0].clientX; mouse.ly=e.touches[0].clientY; mouse.x=e.touches[0].clientX-r.left; mouse.y=e.touches[0].clientY-r.top; } else if(e.touches.length===2){ pinchD=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); } },{passive:true});
   canvas.addEventListener('touchmove',(e)=>{ if(e.touches.length===1&&mouse.down){ const dx=e.touches[0].clientX-mouse.lx,dy=e.touches[0].clientY-mouse.ly; if(Math.hypot(dx,dy)>3) mouse.dragged=true; cam.x-=dx/cam.zoom; cam.y-=dy/cam.zoom; cam.tx=cam.x; cam.ty=cam.y; const r=canvas.getBoundingClientRect(); mouse.x=e.touches[0].clientX-r.left; mouse.y=e.touches[0].clientY-r.top; mouse.lx=e.touches[0].clientX; mouse.ly=e.touches[0].clientY; } else if(e.touches.length===2){ const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); if(pinchD){ cam.tzoom=Math.min(ZOOM_MAX,Math.max(ZOOM_MIN,cam.tzoom*(d/pinchD))); cam.zoom=cam.tzoom; } pinchD=d; } },{passive:true});
-  canvas.addEventListener('touchend',()=>{ if(mouse.down&&!mouse.dragged){ const h=planetAtCursor(); if(h) montrerPopup(h.p); } mouse.down=false; pinchD=0; });
+  canvas.addEventListener('touchend',()=>{ if(mouse.down&&!mouse.dragged){ const h=planetAtCursor(); if(h){ if(window.estModeEnvoi&&window.estModeEnvoi()){ window.choisirDestination(h.p.addr); } else montrerPopup(h.p); } } mouse.down=false; pinchD=0; });
   resetBtn_safe();
   function resetBtn_safe(){ const b=document.querySelector('#btn-home'); /* reset géré ailleurs */ }
 
@@ -1157,6 +1233,40 @@ function demarrerJeu(){
         if(!mouse.dragged){ const hr=Math.max(12,si.haloR*0.5); if(Math.hypot(mouse.x-sp.x,mouse.y-sp.y)<hr) hoverSys=sys; }
         if((fA>0.15||hoverSys===sys)&&cam.zoom>LOD_APPROACH){ const a=Math.max(fA,hoverSys===sys?1:0); const yo=si.nameR+5+fS*8; ctx.fillStyle='rgba(255,255,255,'+(0.7*a).toFixed(2)+')'; ctx.font=(hoverSys===sys?'bold ':'')+'12px sans-serif'; ctx.fillText(sys.name,sp.x,sp.y-yo); }
       } } }
+    // === FLOTTES EN MOUVEMENT ===
+    for(const fl of MES_FLOTTES){
+      const oa=/^S(\d+)/.exec(fl.origine), od=/^S(\d+)/.exec(fl.destination);
+      if(!oa||!od) continue;
+      const sysO=SYS_BY_IDX[parseInt(oa[1],10)], sysD=SYS_BY_IDX[parseInt(od[1],10)];
+      if(!sysO||!sysD) continue;
+      const dep=new Date(fl.depart).getTime(), arr=new Date(fl.arrivee).getTime();
+      const prog=Math.max(0,Math.min(1,(Date.now()-dep)/(arr-dep)));
+      const wx=sysO.x+(sysD.x-sysO.x)*prog, wy=sysO.y+(sysD.y-sysO.y)*prog;
+      const sp=w2s(wx,wy); const spO=w2s(sysO.x,sysO.y), spD=w2s(sysD.x,sysD.y);
+      // ligne de trajectoire (pointillés)
+      ctx.save(); ctx.setLineDash([5,5]); ctx.strokeStyle=fl.mission==='retour'?'rgba(255,150,90,0.35)':'rgba(120,200,255,0.4)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(sp.x,sp.y); ctx.lineTo(spD.x,spD.y); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+      // marqueur de flotte : petit triangle oriente vers la destination
+      const ang=Math.atan2(spD.y-spO.y,spD.x-spO.x);
+      const col=fl.mission==='retour'?'#ff9b5a':(fl.mission==='colonisation'?'#afa9ec':'#7cd0ff');
+      ctx.save(); ctx.translate(sp.x,sp.y); ctx.rotate(ang);
+      ctx.fillStyle=col; ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.moveTo(8,0); ctx.lineTo(-5,-4); ctx.lineTo(-2,0); ctx.lineTo(-5,4); ctx.closePath(); ctx.fill(); ctx.stroke();
+      // halo
+      ctx.globalAlpha=0.3; ctx.beginPath(); ctx.arc(0,0,9,0,6.28); ctx.fillStyle=col; ctx.fill(); ctx.globalAlpha=1;
+      ctx.restore();
+      // compteur de vaisseaux + temps restant si survol proche
+      const nb=Object.values(fl.composition).reduce((s,n)=>s+n,0);
+      if(Math.hypot(mouse.x-sp.x,mouse.y-sp.y)<20){
+        const reste=Math.max(0,Math.ceil((arr-Date.now())/1000));
+        const mn=Math.floor(reste/60), sec=reste%60;
+        ctx.fillStyle='rgba(10,16,30,0.92)'; ctx.strokeStyle=col; ctx.lineWidth=1;
+        const txt=nb+' ships · '+(mn>0?mn+'m ':'')+sec+'s';
+        ctx.font='11px sans-serif'; const tw=ctx.measureText(txt).width;
+        ctx.beginPath(); ctx.roundRect(sp.x-tw/2-6,sp.y-28,tw+12,18,5); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#cfe3ff'; ctx.textAlign='center'; ctx.fillText(txt,sp.x,sp.y-15);
+      }
+    }
     const hov=planetAtCursor();
     if(hov&&!mouse.down){ ctx.strokeStyle='rgba(255,255,255,0.8)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(hov.px,hov.py,Math.max(10,hov.scr+7),0,6.28); ctx.stroke(); canvas.style.cursor='pointer'; }
     else if(hoverSys&&!mouse.down){ const sp=w2s(hoverSys.x,hoverSys.y); ctx.strokeStyle='rgba(120,180,255,0.6)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(sp.x,sp.y,Math.max(14,hoverSys.starR*hoverSys.star.rFactor*bs*2.6),0,6.28); ctx.stroke(); canvas.style.cursor='pointer'; }
