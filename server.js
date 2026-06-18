@@ -132,6 +132,28 @@ async function estOccupee(addr){
 // ============================================================
 const auth = require("./auth");
 
+// ============================================================
+//  ADMIN : comptes de test avec super-pouvoirs.
+//  - stock geant auto-credite
+//  - constructions / productions instantanees
+//  Pour ajouter un admin : mettre son pseudo (en minuscules) ici.
+// ============================================================
+const ADMINS = new Set(["admin"]);
+function estAdmin(pseudo) { return pseudo && ADMINS.has(pseudo.toLowerCase()); }
+// credite un stock geant a un admin sur toutes les ressources connues
+async function crediterStockAdmin(pseudo) {
+  const ressources = Object.keys(galaxy.RES_TAUX || {});
+  // fallback : liste de base si RES_TAUX absent
+  const liste = ressources.length ? ressources : ["fer","silicates","aluminium","carbone","cuivre","titane","cristaux","or","platine","uranium"];
+  for (const r of liste) {
+    await pool.query(
+      `INSERT INTO stocks (joueur, ressource, quantite) VALUES ($1,$2,$3)
+       ON CONFLICT (joueur, ressource) DO UPDATE SET quantite = GREATEST(stocks.quantite, $3)`,
+      [pseudo, r, 1e9]
+    );
+  }
+}
+
 // attribue une planete d'origine si le joueur n'en a pas
 async function assurerHome(pseudo) {
   let home = await pool.query(
@@ -174,13 +196,13 @@ async function joueurDeSession(jeton) {
 app.post("/api/inscription", async (req, res) => {
   const pseudo = (req.body.pseudo || "").trim().slice(0, 20);
   const mdp = (req.body.motdepasse || "");
-  if (pseudo.length < 2) return res.status(400).json({ erreur: "Pseudo trop court (2 caractères min)" });
-  if (!/^[a-zA-Z0-9_\- ]+$/.test(pseudo)) return res.status(400).json({ erreur: "Pseudo : lettres, chiffres, - et _ seulement" });
-  if (mdp.length < 4) return res.status(400).json({ erreur: "Mot de passe trop court (4 caractères min)" });
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Username too short (min 2 characters)" });
+  if (!/^[a-zA-Z0-9_\- ]+$/.test(pseudo)) return res.status(400).json({ erreur: "Username: letters, numbers, - and _ only" });
+  if (mdp.length < 4) return res.status(400).json({ erreur: "Password too short (min 4 characters)" });
   try {
     const existe = await pool.query("SELECT nom, mdp_hash FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
     if (existe.rows.length > 0 && existe.rows[0].mdp_hash) {
-      return res.json({ succes: false, message: "Ce pseudo est déjà pris." });
+      return res.json({ succes: false, message: "This username is already taken." });
     }
     const hash = auth.hacherMotDePasse(mdp);
     if (existe.rows.length > 0) {
@@ -199,14 +221,14 @@ app.post("/api/inscription", async (req, res) => {
 app.post("/api/connexion", async (req, res) => {
   const pseudo = (req.body.pseudo || "").trim().slice(0, 20);
   const mdp = (req.body.motdepasse || "");
-  if (pseudo.length < 2) return res.status(400).json({ erreur: "Pseudo invalide" });
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Invalid username" });
   try {
     const r = await pool.query("SELECT nom, mdp_hash FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
-    if (r.rows.length === 0) return res.json({ succes: false, message: "Compte introuvable.", inconnu: true });
+    if (r.rows.length === 0) return res.json({ succes: false, message: "Account not found.", inconnu: true });
     const j = r.rows[0];
-    if (!j.mdp_hash) return res.json({ succes: false, message: "Ce compte n'a pas de mot de passe. Définis-en un.", besoinMdp: true });
+    if (!j.mdp_hash) return res.json({ succes: false, message: "This account has no password. Please set one.", besoinMdp: true });
     if (!auth.verifierMotDePasse(mdp, j.mdp_hash)) {
-      return res.json({ succes: false, message: "Mot de passe incorrect." });
+      return res.json({ succes: false, message: "Incorrect password." });
     }
     await pool.query("UPDATE joueurs SET vu_le=NOW() WHERE nom=$1", [j.nom]);
     const homeAddr = await assurerHome(j.nom);
@@ -260,8 +282,8 @@ app.post("/api/renommer", async (req, res) => {
   const pseudo = (req.body.pseudo || "").trim().slice(0,20);
   const addr = (req.body.addr || "").trim();
   let nom = (req.body.nom || "").trim().slice(0, 40);
-  if (pseudo.length < 2) return res.status(400).json({ erreur: "Joueur invalide" });
-  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Invalid player" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Invalid address" });
   try {
     // on ne renomme QUE si la planete appartient bien au joueur
     const r = await pool.query(
@@ -269,7 +291,7 @@ app.post("/api/renommer", async (req, res) => {
       [nom || null, addr, pseudo]
     );
     if (r.rows.length === 0) {
-      return res.json({ succes:false, message:"Cette planète ne vous appartient pas." });
+      return res.json({ succes:false, message:"This planet does not belong to you." });
     }
     res.json({ succes:true, addr, nom });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
@@ -283,7 +305,7 @@ app.post("/api/renommer", async (req, res) => {
 app.post("/api/coloniser", async (req, res) => {
   const pseudo = (req.body.pseudo || "").trim().slice(0,20);
   const addr = (req.body.addr || "").trim();
-  if (pseudo.length < 2) return res.status(400).json({ erreur: "Joueur invalide" });
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Invalid player" });
 
   // 1) l'adresse correspond-elle a une vraie planete ?
   const info = galaxy.parseAddr(addr);
@@ -394,8 +416,9 @@ async function encaisserEtLireStock(pseudo) {
 
 app.get("/api/stock", async (req, res) => {
   const pseudo = (req.query.pseudo || "").trim().slice(0,20);
-  if (pseudo.length < 2) return res.status(400).json({ erreur: "Joueur invalide" });
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Invalid player" });
   try {
+    if (estAdmin(pseudo)) await crediterStockAdmin(pseudo);
     const data = await encaisserEtLireStock(pseudo);
     res.json(data);
   } catch (e) { res.status(500).json({ erreur: e.message }); }
@@ -406,12 +429,12 @@ app.get("/api/stock", async (req, res) => {
 // ============================================================
 // catalogue des titres et leurs conditions
 const TITRES_DEF = {
-  fondateur:   { nom: "Fondateur", desc: "A fondé son empire", icone: "flag" },
-  explorateur: { nom: "Explorateur", desc: "Possède 3 planètes ou plus", icone: "compass" },
-  batisseur:   { nom: "Bâtisseur", desc: "Possède 5 planètes ou plus", icone: "building" },
-  magnat:      { nom: "Magnat", desc: "Possède 10 planètes ou plus", icone: "crown" },
-  prospecteur: { nom: "Prospecteur", desc: "Détient une ressource exotique", icone: "diamond" },
-  veteran:     { nom: "Vétéran", desc: "Empire fondé il y a plus de 7 jours", icone: "clock" }
+  fondateur:   { nom: "Founder", desc: "Founded their empire", icone: "flag" },
+  explorateur: { nom: "Explorer", desc: "Owns 3 or more planets", icone: "compass" },
+  batisseur:   { nom: "Builder", desc: "Owns 5 or more planets", icone: "building" },
+  magnat:      { nom: "Magnate", desc: "Owns 10 or more planets", icone: "crown" },
+  prospecteur: { nom: "Prospector", desc: "Holds an exotic resource", icone: "diamond" },
+  veteran:     { nom: "Veteran", desc: "Empire founded over 7 days ago", icone: "clock" }
 };
 
 // recalcule les titres automatiques d'un joueur
@@ -436,12 +459,12 @@ async function recalcTitres(pseudo) {
 // GET profil d'un joueur (le sien ou un autre)
 app.get("/api/profil", async (req, res) => {
   const pseudo = (req.query.pseudo || "").trim().slice(0,20);
-  if (pseudo.length < 2) return res.status(400).json({ erreur: "Pseudo invalide" });
+  if (pseudo.length < 2) return res.status(400).json({ erreur: "Invalid username" });
   try {
     const r = await pool.query(
       "SELECT nom, nom_empire, couleur, bio, embleme, cree_le FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]
     );
-    if (r.rows.length === 0) return res.status(404).json({ erreur: "Joueur introuvable" });
+    if (r.rows.length === 0) return res.status(404).json({ erreur: "Player not found" });
     const j = r.rows[0];
     await recalcTitres(j.nom);
     const titres = await pool.query("SELECT code, obtenu_le FROM titres WHERE joueur=$1", [j.nom]);
@@ -467,7 +490,7 @@ app.post("/api/profil", async (req, res) => {
   const jeton = (req.body.jeton || "").trim();
   try {
     const pseudo = await joueurDeSession(jeton);
-    if (!pseudo) return res.status(401).json({ erreur: "Non authentifié" });
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
     const nomEmpire = (req.body.nom_empire || "").trim().slice(0, 30) || null;
     const couleur = (req.body.couleur || "").trim().slice(0, 7) || null;
     const bio = (req.body.bio || "").trim().slice(0, 200) || null;
@@ -518,7 +541,7 @@ async function niveauxBatiments(addr) {
 // GET etat des batiments d'une planete (+ construction en cours)
 app.get("/api/batiments", async (req, res) => {
   const addr = (req.query.addr || "").trim();
-  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Invalid address" });
   try {
     await finaliserConstructions(addr);
     const niveaux = await niveauxBatiments(addr);
@@ -549,30 +572,31 @@ app.post("/api/construire", async (req, res) => {
   const jeton = (req.body.jeton || "").trim();
   const addr = (req.body.addr || "").trim();
   const code = (req.body.code || "").trim();
-  if (!galaxy.BATIMENTS[code]) return res.status(400).json({ erreur: "Bâtiment inconnu" });
-  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  if (!galaxy.BATIMENTS[code]) return res.status(400).json({ erreur: "Unknown building" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Invalid address" });
   const client = await pool.connect();
   try {
     const pseudo = await joueurDeSession(jeton);
-    if (!pseudo) return res.status(401).json({ erreur: "Non authentifié" });
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
     await client.query("BEGIN");
     // la planete appartient-elle au joueur ?
     const poss = await client.query("SELECT joueur FROM possessions WHERE addr=$1 FOR UPDATE", [addr]);
     if (!poss.rows.length || poss.rows[0].joueur !== pseudo) {
-      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Cette planète ne vous appartient pas." });
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "This planet does not belong to you." });
     }
     // deja une construction en cours ?
     const enCours = await client.query("SELECT 1 FROM constructions WHERE addr=$1", [addr]);
     if (enCours.rows.length) {
-      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Une construction est déjà en cours sur cette planète." });
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "A construction is already in progress on this planet." });
     }
     // niveau actuel + prerequis
     const niveauxR = await client.query("SELECT code, niveau FROM batiments WHERE addr=$1", [addr]);
     const niveaux = {}; for (const row of niveauxR.rows) niveaux[row.code] = row.niveau;
     const nivActuel = niveaux[code] || 0;
     const b = galaxy.BATIMENTS[code];
-    if (nivActuel >= b.max) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Niveau maximum atteint." }); }
-    if (!galaxy.prerequisOk(code, niveaux)) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Prérequis non remplis." }); }
+    const admin = estAdmin(pseudo);
+    if (!admin && nivActuel >= b.max) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Maximum level reached." }); }
+    if (!admin && !galaxy.prerequisOk(code, niveaux)) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Prerequisites not met." }); }
     const niveauVise = nivActuel + 1;
     const cout = galaxy.coutBatiment(code, niveauVise);
     // d'abord on encaisse la production pour avoir le stock a jour
@@ -581,14 +605,14 @@ app.post("/api/construire", async (req, res) => {
     for (const r in cout) {
       const s = await client.query("SELECT quantite FROM stocks WHERE joueur=$1 AND ressource=$2", [pseudo, r]);
       const q = s.rows.length ? s.rows[0].quantite : 0;
-      if (q < cout[r]) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Ressources insuffisantes (" + r + ")." }); }
+      if (q < cout[r]) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Insufficient resources (" + r + ")." }); }
     }
     // debite
     for (const r in cout) {
       await client.query("UPDATE stocks SET quantite = quantite - $1 WHERE joueur=$2 AND ressource=$3", [cout[r], pseudo, r]);
     }
-    // cree la construction
-    const tempsSec = galaxy.tempsBatiment(code, niveauVise);
+    // cree la construction (instantanee pour un admin)
+    const tempsSec = estAdmin(pseudo) ? 0 : galaxy.tempsBatiment(code, niveauVise);
     await client.query(
       "INSERT INTO constructions (addr, joueur, code, niveau_vise, fin) VALUES ($1,$2,$3,$4, NOW() + ($5 || ' seconds')::interval)",
       [addr, pseudo, code, niveauVise, tempsSec]
@@ -628,7 +652,7 @@ async function vaisseauxDe(addr) {
 // GET vaisseaux + chantier en cours d'une planete
 app.get("/api/vaisseaux", async (req, res) => {
   const addr = (req.query.addr || "").trim();
-  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Invalid address" });
   try {
     await finaliserChantier(addr);
     const flotte = await vaisseauxDe(addr);
@@ -646,27 +670,27 @@ app.post("/api/produire", async (req, res) => {
   const addr = (req.body.addr || "").trim();
   const type = (req.body.type || "").trim();
   const nombre = Math.max(1, Math.min(500, parseInt(req.body.nombre, 10) || 0));
-  if (!galaxy.VAISSEAUX[type]) return res.status(400).json({ erreur: "Type inconnu" });
-  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Adresse invalide" });
+  if (!galaxy.VAISSEAUX[type]) return res.status(400).json({ erreur: "Unknown type" });
+  if (!galaxy.parseAddr(addr)) return res.status(400).json({ erreur: "Invalid address" });
   const client = await pool.connect();
   try {
     const pseudo = await joueurDeSession(jeton);
-    if (!pseudo) return res.status(401).json({ erreur: "Non authentifié" });
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
     await client.query("BEGIN");
     const poss = await client.query("SELECT joueur FROM possessions WHERE addr=$1 FOR UPDATE", [addr]);
     if (!poss.rows.length || poss.rows[0].joueur !== pseudo) {
-      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Cette planète ne vous appartient pas." });
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "This planet does not belong to you." });
     }
     // chantier spatial requis
     const nivR = await client.query("SELECT code, niveau FROM batiments WHERE addr=$1", [addr]);
     const niv = {}; for (const row of nivR.rows) niv[row.code] = row.niveau;
     if ((niv.chantier || 0) <= 0) {
-      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Un chantier spatial est requis sur cette planète." });
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "A shipyard is required on this planet." });
     }
     // une seule production de vaisseaux a la fois
     const enCours = await client.query("SELECT 1 FROM chantiers WHERE addr=$1", [addr]);
     if (enCours.rows.length) {
-      await client.query("ROLLBACK"); return res.json({ succes: false, message: "Le chantier est déjà occupé." });
+      await client.query("ROLLBACK"); return res.json({ succes: false, message: "The shipyard is already busy." });
     }
     // cout
     const composition = {}; composition[type] = nombre;
@@ -674,12 +698,12 @@ app.post("/api/produire", async (req, res) => {
     for (const r in cout) {
       const s = await client.query("SELECT quantite FROM stocks WHERE joueur=$1 AND ressource=$2", [pseudo, r]);
       const q = s.rows.length ? s.rows[0].quantite : 0;
-      if (q < cout[r]) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Ressources insuffisantes (" + r + ")." }); }
+      if (q < cout[r]) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Insufficient resources (" + r + ")." }); }
     }
     for (const r in cout) {
       await client.query("UPDATE stocks SET quantite = quantite - $1 WHERE joueur=$2 AND ressource=$3", [cout[r], pseudo, r]);
     }
-    const tempsSec = galaxy.tempsFlotte(composition);
+    const tempsSec = estAdmin(pseudo) ? 0 : galaxy.tempsFlotte(composition);
     await client.query(
       "INSERT INTO chantiers (addr, joueur, type, nombre, fin) VALUES ($1,$2,$3,$4, NOW() + ($5 || ' seconds')::interval)",
       [addr, pseudo, type, nombre, tempsSec]

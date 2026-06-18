@@ -245,83 +245,83 @@ module.exports.productionHoraire = productionHoraire;
 // ============================================================
 const BATIMENTS = {
   commandement: {
-    nom: "Centre de commandement", branche: "central",
+    nom: "Command Center", branche: "central",
     coutBase: { fer: 100, silicates: 80 }, mult: 1.6,
     tempsBase: 60, multTemps: 1.8, energie: 0,
     prerequis: {}, max: 10,
-    desc: "Cœur de la planète. Son niveau débloque les paliers supérieurs."
+    desc: "Heart of the planet. Its level unlocks higher tiers."
   },
   extracteur: {
-    nom: "Extracteur", branche: "extraction",
+    nom: "Extractor", branche: "extraction",
     coutBase: { fer: 60, silicates: 40 }, mult: 1.5,
     tempsBase: 45, multTemps: 1.7, energie: 10,
     prerequis: {}, max: 15,
     effet: { type: "prod_brute", bonus: 0.15 }, // +15% prod communs par niveau
-    desc: "Augmente la production des ressources de la planète."
+    desc: "Increases the planet's resource production."
   },
   raffinerie: {
-    nom: "Raffinerie", branche: "extraction",
+    nom: "Refinery", branche: "extraction",
     coutBase: { fer: 200, cuivre: 100, silicates: 120 }, mult: 1.55,
     tempsBase: 180, multTemps: 1.75, energie: 25,
     prerequis: { extracteur: 3 }, max: 10,
     effet: { type: "prod_rare", bonus: 0.10 },
-    desc: "Affine les ressources communes en métaux plus rares."
+    desc: "Refines common resources into rarer metals."
   },
   centrale: {
-    nom: "Centrale énergétique", branche: "energie",
+    nom: "Power Plant", branche: "energie",
     coutBase: { fer: 80, cuivre: 40 }, mult: 1.5,
     tempsBase: 50, multTemps: 1.7, energie: 0,
     prerequis: {}, max: 15,
     effet: { type: "energie", bonus: 50 }, // +50 energie par niveau
-    desc: "Produit l'énergie qui alimente les autres bâtiments."
+    desc: "Produces energy that powers other buildings."
   },
   collecteur: {
-    nom: "Collecteur solaire", branche: "energie",
+    nom: "Solar Collector", branche: "energie",
     coutBase: { silicates: 150, aluminium: 100, cuivre: 60 }, mult: 1.55,
     tempsBase: 150, multTemps: 1.75, energie: 0,
     prerequis: { centrale: 3 }, max: 12,
     effet: { type: "energie", bonus: 120 },
-    desc: "Génère de grandes quantités d'énergie."
+    desc: "Generates large amounts of energy."
   },
   entrepot: {
-    nom: "Entrepôt", branche: "stockage",
+    nom: "Warehouse", branche: "stockage",
     coutBase: { fer: 50, silicates: 60 }, mult: 1.5,
     tempsBase: 40, multTemps: 1.65, energie: 5,
     prerequis: {}, max: 15,
     effet: { type: "capacite", bonus: 5000 }, // +5000 capacite par niveau
-    desc: "Augmente la capacité de stockage des ressources."
+    desc: "Increases resource storage capacity."
   },
   caserne: {
-    nom: "Caserne orbitale", branche: "militaire",
+    nom: "Orbital Barracks", branche: "militaire",
     coutBase: { fer: 300, titane: 80, cuivre: 100 }, mult: 1.6,
     tempsBase: 240, multTemps: 1.8, energie: 40,
     prerequis: { entrepot: 2 }, max: 10,
     effet: { type: "defense", bonus: 100 },
-    desc: "Renforce la défense planétaire contre les attaques."
+    desc: "Strengthens planetary defense against attacks."
   },
   laboratoire: {
-    nom: "Laboratoire", branche: "avance",
+    nom: "Laboratory", branche: "avance",
     coutBase: { silicates: 200, cuivre: 120, titane: 60 }, mult: 1.6,
     tempsBase: 300, multTemps: 1.8, energie: 50,
     prerequis: { extracteur: 5, centrale: 3 }, max: 10,
     effet: { type: "recherche", bonus: 1 },
-    desc: "Débloque la recherche de technologies avancées."
+    desc: "Unlocks advanced technology research."
   },
   chantier: {
-    nom: "Chantier spatial", branche: "avance",
+    nom: "Shipyard", branche: "avance",
     coutBase: { fer: 400, titane: 150, aluminium: 100 }, mult: 1.65,
     tempsBase: 360, multTemps: 1.8, energie: 60,
     prerequis: { centrale: 3 }, max: 10,
     effet: { type: "vaisseaux", bonus: 1 },
-    desc: "Permet de construire des vaisseaux (flottes à venir)."
+    desc: "Allows building ships (fleets coming soon)."
   },
   arsenal: {
-    nom: "Arsenal stellaire", branche: "avance",
+    nom: "Stellar Arsenal", branche: "avance",
     coutBase: { titane: 400, or: 50, cristaux: 100 }, mult: 1.7,
     tempsBase: 600, multTemps: 1.85, energie: 100,
     prerequis: { laboratoire: 1, chantier: 1, caserne: 1 }, max: 5,
     effet: { type: "flotte_guerre", bonus: 1 },
-    desc: "Débloque les flottes de guerre les plus puissantes."
+    desc: "Unlocks the most powerful war fleets."
   }
 };
 
@@ -397,24 +397,24 @@ module.exports.bilanEnergie = bilanEnergie;
 // ============================================================
 const VAISSEAUX = {
   chasseur: {
-    nom: "Chasseur", attaque: 12, blindage: 40, vitesse: 1400, capacite: 0,
+    nom: "Fighter", attaque: 12, blindage: 40, vitesse: 1400, capacite: 0,
     cout: { fer: 80, aluminium: 40 }, temps: 30, energie: 2,
-    desc: "Rapide et bon marché. Redoutable en nombre."
+    desc: "Fast and cheap. Deadly in numbers."
   },
   croiseur: {
-    nom: "Croiseur", attaque: 60, blindage: 280, vitesse: 800, capacite: 50,
+    nom: "Cruiser", attaque: 60, blindage: 280, vitesse: 800, capacite: 50,
     cout: { fer: 400, titane: 120, cuivre: 80 }, temps: 180, energie: 12,
-    desc: "Vaisseau lourd. Puissant et résistant."
+    desc: "Heavy ship. Powerful and tough."
   },
   transport: {
     nom: "Transport", attaque: 2, blindage: 100, vitesse: 1000, capacite: 2000,
     cout: { fer: 200, aluminium: 150 }, temps: 90, energie: 5,
-    desc: "Transporte des ressources. Combat faible."
+    desc: "Carries resources. Weak in combat."
   },
   colonisateur: {
-    nom: "Colonisateur", attaque: 0, blindage: 150, vitesse: 700, capacite: 500,
+    nom: "Colony Ship", attaque: 0, blindage: 150, vitesse: 700, capacite: 500,
     cout: { fer: 500, silicates: 300, titane: 100 }, temps: 300, energie: 15,
-    desc: "Fonde une colonie sur une planète libre à distance."
+    desc: "Founds a colony on a free planet remotely."
   }
 };
 
