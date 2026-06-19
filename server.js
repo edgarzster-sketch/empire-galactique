@@ -38,6 +38,17 @@ async function preparerBase() {
   await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS couleur TEXT`);
   await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS bio TEXT`);
   await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS embleme TEXT`); // JSON : {forme,symbole,c1,c2}
+  await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS email TEXT`);
+  await pool.query(`ALTER TABLE joueurs ADD COLUMN IF NOT EXISTS banni BOOLEAN DEFAULT FALSE`);
+  // jetons de reinitialisation de mot de passe (expirent apres 1h)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS resets (
+      jeton TEXT PRIMARY KEY,
+      joueur TEXT NOT NULL,
+      expire TIMESTAMPTZ NOT NULL,
+      utilise BOOLEAN DEFAULT FALSE
+    )
+  `);
   // sessions : jeton -> joueur
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sessions (
@@ -224,9 +235,11 @@ async function joueurDeSession(jeton) {
 app.post("/api/inscription", async (req, res) => {
   const pseudo = (req.body.pseudo || "").trim().slice(0, 20);
   const mdp = (req.body.motdepasse || "");
+  const email = (req.body.email || "").trim().slice(0, 100).toLowerCase() || null;
   if (pseudo.length < 2) return res.status(400).json({ erreur: "Username too short (min 2 characters)" });
   if (!/^[a-zA-Z0-9_\- ]+$/.test(pseudo)) return res.status(400).json({ erreur: "Username: letters, numbers, - and _ only" });
   if (mdp.length < 4) return res.status(400).json({ erreur: "Password too short (min 4 characters)" });
+  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return res.status(400).json({ erreur: "Invalid email address" });
   try {
     const existe = await pool.query("SELECT nom, mdp_hash FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
     if (existe.rows.length > 0 && existe.rows[0].mdp_hash) {
@@ -234,14 +247,14 @@ app.post("/api/inscription", async (req, res) => {
     }
     const hash = auth.hacherMotDePasse(mdp);
     if (existe.rows.length > 0) {
-      await pool.query("UPDATE joueurs SET mdp_hash=$1, vu_le=NOW() WHERE LOWER(nom)=LOWER($2)", [hash, pseudo]);
+      await pool.query("UPDATE joueurs SET mdp_hash=$1, email=COALESCE($2,email), vu_le=NOW() WHERE LOWER(nom)=LOWER($3)", [hash, email, pseudo]);
     } else {
-      await pool.query("INSERT INTO joueurs (nom, mdp_hash) VALUES ($1,$2)", [pseudo, hash]);
+      await pool.query("INSERT INTO joueurs (nom, mdp_hash, email) VALUES ($1,$2,$3)", [pseudo, hash, email]);
     }
     const homeAddr = await assurerHome(pseudo);
     await debloquerTitre(pseudo, "fondateur");
     const jeton = await creerSession(pseudo);
-    res.json({ succes: true, pseudo, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr });
+    res.json({ succes: true, pseudo, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr, admin: estAdmin(pseudo) });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
@@ -251,9 +264,10 @@ app.post("/api/connexion", async (req, res) => {
   const mdp = (req.body.motdepasse || "");
   if (pseudo.length < 2) return res.status(400).json({ erreur: "Invalid username" });
   try {
-    const r = await pool.query("SELECT nom, mdp_hash FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
+    const r = await pool.query("SELECT nom, mdp_hash, banni FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
     if (r.rows.length === 0) return res.json({ succes: false, message: "Account not found.", inconnu: true });
     const j = r.rows[0];
+    if (j.banni) return res.json({ succes: false, message: "This account has been banned." });
     if (!j.mdp_hash) return res.json({ succes: false, message: "This account has no password. Please set one.", besoinMdp: true });
     if (!auth.verifierMotDePasse(mdp, j.mdp_hash)) {
       return res.json({ succes: false, message: "Incorrect password." });
@@ -261,7 +275,7 @@ app.post("/api/connexion", async (req, res) => {
     await pool.query("UPDATE joueurs SET vu_le=NOW() WHERE nom=$1", [j.nom]);
     const homeAddr = await assurerHome(j.nom);
     const jeton = await creerSession(j.nom);
-    res.json({ succes: true, pseudo: j.nom, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr });
+    res.json({ succes: true, pseudo: j.nom, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr, admin: estAdmin(j.nom) });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
@@ -273,7 +287,7 @@ app.post("/api/session", async (req, res) => {
     if (!pseudo) return res.json({ succes: false });
     await pool.query("UPDATE joueurs SET vu_le=NOW() WHERE nom=$1", [pseudo]);
     const homeAddr = await assurerHome(pseudo);
-    res.json({ succes: true, pseudo, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr });
+    res.json({ succes: true, pseudo, jeton, graine: galaxy.GRAINE_UNIVERS, home: homeAddr, admin: estAdmin(pseudo) });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
@@ -982,6 +996,120 @@ app.post("/api/admin-reset", async (req, res) => {
     }
     await pool.query("UPDATE joueurs SET mdp_hash=$1 WHERE LOWER(nom)=LOWER($2)", [hash, pseudo]);
     res.json({ succes: true, message: "Password reset for " + existe.rows[0].nom + "." });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// ============================================================
+//  RECUPERATION DE COMPTE (par email -> jeton de reset)
+// ============================================================
+const crypto = require("crypto");
+
+// le joueur demande une recuperation : on genere un jeton (valable 1h)
+// (l'envoi d'email reel sera branche plus tard ; pour l'instant le lien
+//  est recuperable par l'admin via le panneau de moderation)
+app.post("/api/recuperation", async (req, res) => {
+  const identifiant = (req.body.identifiant || "").trim().slice(0, 100);
+  if (identifiant.length < 2) return res.status(400).json({ erreur: "Enter your username or email" });
+  try {
+    // recherche par pseudo OU email
+    const r = await pool.query(
+      "SELECT nom, email FROM joueurs WHERE LOWER(nom)=LOWER($1) OR LOWER(email)=LOWER($1)", [identifiant]
+    );
+    // reponse identique que le compte existe ou non (anti-enumeration)
+    if (r.rows.length === 0) return res.json({ succes: true, message: "If this account exists, a reset link has been generated." });
+    const joueur = r.rows[0].nom;
+    const jeton = crypto.randomBytes(24).toString("hex");
+    await pool.query(
+      "INSERT INTO resets (jeton, joueur, expire) VALUES ($1,$2, NOW() + INTERVAL '1 hour')", [jeton, joueur]
+    );
+    // TODO : envoyer un email avec le lien /reset?token=jeton quand un service email sera configure
+    res.json({ succes: true, message: "If this account exists, a reset link has been generated.", lienDev: "/reset?token=" + jeton });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// le joueur applique le reset avec son jeton
+app.post("/api/recuperation-appliquer", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  const nouveau = (req.body.nouveauMotDePasse || "");
+  if (nouveau.length < 4) return res.status(400).json({ erreur: "Password too short (min 4 characters)" });
+  try {
+    const r = await pool.query("SELECT joueur, expire, utilise FROM resets WHERE jeton=$1", [jeton]);
+    if (r.rows.length === 0) return res.json({ succes: false, message: "Invalid reset link." });
+    const reset = r.rows[0];
+    if (reset.utilise) return res.json({ succes: false, message: "This reset link has already been used." });
+    if (new Date(reset.expire).getTime() < Date.now()) return res.json({ succes: false, message: "This reset link has expired." });
+    const hash = auth.hacherMotDePasse(nouveau);
+    await pool.query("UPDATE joueurs SET mdp_hash=$1 WHERE nom=$2", [hash, reset.joueur]);
+    await pool.query("UPDATE resets SET utilise=TRUE WHERE jeton=$1", [jeton]);
+    res.json({ succes: true, message: "Password updated. You can now log in.", pseudo: reset.joueur });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// ============================================================
+//  MODERATION ADMIN (protege : l'appelant doit etre admin)
+// ============================================================
+// verifie que le jeton appartient a un admin
+async function exigerAdmin(jeton) {
+  const pseudo = await joueurDeSession(jeton);
+  if (!pseudo || !estAdmin(pseudo)) return null;
+  return pseudo;
+}
+
+// GET liste detaillee des joueurs (admin)
+app.get("/api/admin/joueurs", async (req, res) => {
+  const jeton = (req.query.jeton || "").trim();
+  try {
+    const admin = await exigerAdmin(jeton);
+    if (!admin) return res.status(403).json({ erreur: "Admin access required" });
+    const r = await pool.query(`
+      SELECT j.nom, j.email, j.banni, j.cree_le, j.vu_le, COUNT(p.addr) AS planetes
+      FROM joueurs j
+      LEFT JOIN possessions p ON p.joueur = j.nom
+      GROUP BY j.nom, j.email, j.banni, j.cree_le, j.vu_le
+      ORDER BY j.vu_le DESC
+    `);
+    res.json({ joueurs: r.rows });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST action de moderation (admin) : ban / unban / delete / reset-password
+app.post("/api/admin/action", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  const action = (req.body.action || "").trim();
+  const cible = (req.body.cible || "").trim();
+  try {
+    const admin = await exigerAdmin(jeton);
+    if (!admin) return res.status(403).json({ erreur: "Admin access required" });
+    if (!cible) return res.json({ succes: false, message: "No target specified." });
+    if (estAdmin(cible)) return res.json({ succes: false, message: "Cannot moderate an admin account." });
+    const existe = await pool.query("SELECT nom FROM joueurs WHERE LOWER(nom)=LOWER($1)", [cible]);
+    if (existe.rows.length === 0) return res.json({ succes: false, message: "Player not found." });
+    const nom = existe.rows[0].nom;
+
+    if (action === "ban") {
+      await pool.query("UPDATE joueurs SET banni=TRUE WHERE nom=$1", [nom]);
+      await pool.query("DELETE FROM sessions WHERE joueur=$1", [nom]); // deconnecte
+      return res.json({ succes: true, message: nom + " has been banned." });
+    }
+    if (action === "unban") {
+      await pool.query("UPDATE joueurs SET banni=FALSE WHERE nom=$1", [nom]);
+      return res.json({ succes: true, message: nom + " has been unbanned." });
+    }
+    if (action === "reset-password") {
+      const nouveau = (req.body.nouveauMotDePasse || "");
+      if (nouveau.length < 4) return res.json({ succes: false, message: "Password too short." });
+      await pool.query("UPDATE joueurs SET mdp_hash=$1 WHERE nom=$2", [auth.hacherMotDePasse(nouveau), nom]);
+      return res.json({ succes: true, message: "Password reset for " + nom + "." });
+    }
+    if (action === "delete") {
+      // supprime le compte et toutes ses donnees
+      for (const t of ["possessions","stocks","batiments","constructions","vaisseaux","chantiers","flottes","rapports","titres","sessions","resets"]) {
+        await pool.query("DELETE FROM " + t + " WHERE joueur=$1", [nom]).catch(()=>{});
+      }
+      await pool.query("DELETE FROM joueurs WHERE nom=$1", [nom]);
+      return res.json({ succes: true, message: nom + " has been deleted." });
+    }
+    res.json({ succes: false, message: "Unknown action." });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
