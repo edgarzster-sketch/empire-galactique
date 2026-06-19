@@ -122,14 +122,26 @@
   </div>
   <div id="auth-form">
     <input id="pseudo" type="text" placeholder="Commander username" maxlength="20" autocomplete="off">
+    <input id="email" type="email" placeholder="Email (optional, for recovery)" maxlength="100" autocomplete="off" style="display:none;">
     <input id="motdepasse" type="password" placeholder="Password" maxlength="60" autocomplete="off">
     <button id="entrer">Enter the galaxy</button>
+    <div id="lien-recup" style="text-align:center;margin-top:10px;font-size:12px;color:#7a9bd5;cursor:pointer;text-decoration:underline;">Forgot your password?</div>
+  </div>
+  <div id="form-recup" style="display:none;">
+    <p style="font-size:12px;color:#8295b0;margin-bottom:10px;">Enter your username or email to recover your account.</p>
+    <input id="recup-id" type="text" placeholder="Username or email" maxlength="100" autocomplete="off">
+    <button id="recup-demander">Recover account</button>
+    <div id="recup-zone-reset" style="display:none;margin-top:12px;">
+      <input id="recup-newpass" type="password" placeholder="New password" maxlength="60" autocomplete="off">
+      <button id="recup-appliquer">Set new password</button>
+    </div>
+    <div style="text-align:center;margin-top:10px;font-size:12px;color:#7a9bd5;cursor:pointer;text-decoration:underline;" id="recup-retour">Back to login</div>
   </div>
   <div id="msg"></div>
 </div>
 <div id="jeu" style="display:none">
   <canvas id="sky"></canvas>
-  <div id="hud"><span class="pastille" id="hud-col"></span>Commander <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profile</span> <span id="hud-rapports" style="cursor:pointer;color:#ff9b7a;margin-left:8px;pointer-events:auto;position:relative;">⚔ reports<span id="rapports-badge" style="display:none;position:absolute;top:-8px;right:-10px;background:#e2554a;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;">0</span></span></div>
+  <div id="hud"><span class="pastille" id="hud-col"></span>Commander <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profile</span> <span id="hud-rapports" style="cursor:pointer;color:#ff9b7a;margin-left:8px;pointer-events:auto;position:relative;">⚔ reports<span id="rapports-badge" style="display:none;position:absolute;top:-8px;right:-10px;background:#e2554a;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;">0</span></span> <span id="hud-admin" style="display:none;cursor:pointer;color:#ffd84a;margin-left:8px;pointer-events:auto;">⚙ admin</span></div>
   <div id="bandeau-stock"></div>
   <div id="scale-badge">Galaxie</div>
   <div id="perf-badge"></div>
@@ -171,7 +183,12 @@
     <h3 style="font-size:14px;color:#ff9b7a;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">⚔ Battle reports <span class="pp-close2" id="rapports-close" style="cursor:pointer;">✕</span></h3>
     <div id="rapports-content" style="overflow-y:auto;"></div>
   </div>
-  <div id="version"><span id="ver">v3.1</span> · combat & conquest</div>
+  <div id="panel-admin" style="position:fixed;right:14px;top:54px;bottom:54px;width:420px;max-width:calc(100vw - 28px);z-index:12;background:linear-gradient(165deg,rgba(20,18,10,0.985),rgba(12,11,7,0.985));border:1px solid #6e5c1c;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.7);">
+    <h3 style="font-size:14px;color:#ffd84a;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">⚙ Admin · Player management <span class="pp-close2" id="admin-close" style="cursor:pointer;">✕</span></h3>
+    <input id="admin-search" type="text" placeholder="Search players..." style="width:100%;padding:8px;margin-bottom:10px;border-radius:8px;border:1px solid #4a4020;background:#0a0a06;color:#fff;font-size:12px;box-sizing:border-box;">
+    <div id="admin-content" style="overflow-y:auto;"></div>
+  </div>
+  <div id="version"><span id="ver">v3.2</span> · account recovery + admin moderation</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -225,11 +242,46 @@ function setMode(insc){ modeInscription=insc;
   document.getElementById('tab-connexion').classList.toggle('actif',!insc);
   document.getElementById('tab-inscription').classList.toggle('actif',insc);
   document.getElementById('entrer').textContent=insc?'Create my empire':'Enter the galaxy';
+  document.getElementById('email').style.display=insc?'block':'none';
   elMsg.textContent='';
 }
 document.getElementById('entrer').addEventListener('click',entrer);
 elMdp.addEventListener('keydown',e=>{ if(e.key==='Enter') entrer(); });
 elPseudo.addEventListener('keydown',e=>{ if(e.key==='Enter') elMdp.focus(); });
+// --- recuperation de compte ---
+document.getElementById('lien-recup').addEventListener('click',()=>{
+  document.getElementById('auth-form').style.display='none';
+  document.getElementById('auth-tabs').style.display='none';
+  document.getElementById('form-recup').style.display='block'; elMsg.textContent='';
+});
+document.getElementById('recup-retour').addEventListener('click',()=>{
+  document.getElementById('form-recup').style.display='none';
+  document.getElementById('auth-form').style.display='block';
+  document.getElementById('auth-tabs').style.display='flex';
+  document.getElementById('recup-zone-reset').style.display='none'; elMsg.textContent='';
+});
+let RECUP_TOKEN=null;
+document.getElementById('recup-demander').addEventListener('click',async()=>{
+  const id=document.getElementById('recup-id').value.trim();
+  if(id.length<2){ elMsg.style.color='#ff9b7a'; elMsg.textContent='Enter your username or email.'; return; }
+  try{ const r=await fetch('/api/recuperation',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifiant:id})});
+    const d=await r.json();
+    elMsg.style.color='#7ade9b'; elMsg.textContent=d.message||'If this account exists, a reset link has been generated.';
+    // En l'absence d'envoi d'email reel, le lien dev permet de continuer directement
+    if(d.lienDev){ RECUP_TOKEN=d.lienDev.split('token=')[1]; document.getElementById('recup-zone-reset').style.display='block'; }
+  }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent='Server unreachable.'; }
+});
+document.getElementById('recup-appliquer').addEventListener('click',async()=>{
+  const np=document.getElementById('recup-newpass').value;
+  if(np.length<4){ elMsg.style.color='#ff9b7a'; elMsg.textContent='Password: 4 characters min.'; return; }
+  if(!RECUP_TOKEN){ elMsg.style.color='#ff9b7a'; elMsg.textContent='Request a reset first.'; return; }
+  try{ const r=await fetch('/api/recuperation-appliquer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:RECUP_TOKEN,nouveauMotDePasse:np})});
+    const d=await r.json();
+    if(d.succes){ elMsg.style.color='#7ade9b'; elMsg.textContent=d.message+' You can log in now.';
+      document.getElementById('recup-retour').click(); document.getElementById('pseudo').value=d.pseudo||''; }
+    else { elMsg.style.color='#ff9b7a'; elMsg.textContent=d.message||'Reset failed.'; }
+  }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent='Server unreachable.'; }
+});
 
 // reconnexion auto via jeton stocke
 window.addEventListener('load',async()=>{
@@ -246,29 +298,32 @@ let goHomeRequested=false;
 async function entrer(){
   const pseudo=elPseudo.value.trim();
   const mdp=elMdp.value;
-  if(pseudo.length<2){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Pseudo : 2 caractères min."; return; }
-  if(mdp.length<4){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Password : 4 caractères min."; return; }
-  elMsg.style.color='#8a97b5'; elMsg.textContent=modeInscription?"Création...":"Connexion...";
+  const email=document.getElementById('email').value.trim();
+  if(pseudo.length<2){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Username: 2 characters min."; return; }
+  if(mdp.length<4){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Password: 4 characters min."; return; }
+  elMsg.style.color='#8a97b5'; elMsg.textContent=modeInscription?"Creating...":"Logging in...";
   const route=modeInscription?'/api/inscription':'/api/connexion';
+  const corps=modeInscription?{pseudo,motdepasse:mdp,email}:{pseudo,motdepasse:mdp};
   try{
-    const r=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pseudo,motdepasse:mdp})});
+    const r=await fetch(route,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corps)});
     const d=await r.json();
     if(d.erreur){ elMsg.style.color='#ff9b7a'; elMsg.textContent=d.erreur; return; }
     if(!d.succes){
-      elMsg.style.color='#ff9b7a'; elMsg.textContent=d.message||"Échec.";
+      elMsg.style.color='#ff9b7a'; elMsg.textContent=d.message||"Failed.";
       if(d.inconnu){ elMsg.innerHTML=d.message+' <span style="color:#9bb8ff;cursor:pointer;text-decoration:underline;" onclick="document.getElementById(\'tab-inscription\').click()">Create this account?</span>'; }
       if(d.besoinMdp){ setMode(true); elMsg.style.color='#9bb8ff'; elMsg.textContent="This account has no password — create one to secure it."; }
       return;
     }
     MON_JETON=d.jeton; localStorage.setItem('eg_jeton',d.jeton);
     await demarrerAvecSession(d);
-  }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Server unreachable. Réessaie."; }
+  }catch(e){ elMsg.style.color='#ff9b7a'; elMsg.textContent="Server unreachable. Try again."; }
 }
 
 async function demarrerAvecSession(d){
   if(d.graine) GRAINE=d.graine;
   MON_PSEUDO=d.pseudo;
   MON_HOME=d.home||null;
+  if(d.admin){ const ha=document.getElementById('hud-admin'); if(ha) ha.style.display='inline'; }
   // charger mon profil (couleur perso)
   await chargerProfile(MON_PSEUDO);
   MA_COULEUR=couleurJoueur(MON_PSEUDO);
@@ -428,6 +483,14 @@ document.getElementById('hud-rapports').addEventListener('click',async ()=>{
   setTimeout(()=>{ const b=document.getElementById('rapports-badge'); if(b) b.style.display='none'; },500);
 });
 document.getElementById('rapports-close').addEventListener('click',()=>{ document.getElementById('panel-rapports').style.display='none'; });
+// bouton admin
+document.getElementById('hud-admin').addEventListener('click',async()=>{
+  const pan=document.getElementById('panel-admin');
+  if(pan.style.display==='flex'){ pan.style.display='none'; return; }
+  await chargerAdminJoueurs(); pan.style.display='flex';
+});
+document.getElementById('admin-close').addEventListener('click',()=>{ document.getElementById('panel-admin').style.display='none'; });
+document.getElementById('admin-search').addEventListener('input',afficherAdminJoueurs);
 async function chargerPossessions(){
   try{ const r=await fetch('/api/possessions'); const d=await r.json();
     const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine,nom_perso:p.nom_perso}; }
@@ -472,6 +535,48 @@ function afficherRapports(){
       pertesTxt+'</div>';
   }
   el.innerHTML=html;
+}
+// ===== PANNEAU ADMIN =====
+let ADMIN_JOUEURS=[];
+async function chargerAdminJoueurs(){
+  if(!MON_JETON) return;
+  try{ const r=await fetch('/api/admin/joueurs?jeton='+encodeURIComponent(MON_JETON)); const d=await r.json();
+    if(d.joueurs){ ADMIN_JOUEURS=d.joueurs; afficherAdminJoueurs(); }
+  }catch(e){}
+}
+function afficherAdminJoueurs(){
+  const el=document.getElementById('admin-content'); if(!el) return;
+  const filtre=(document.getElementById('admin-search').value||'').toLowerCase();
+  const liste=ADMIN_JOUEURS.filter(j=>!filtre||j.nom.toLowerCase().includes(filtre)||(j.email||'').toLowerCase().includes(filtre));
+  if(liste.length===0){ el.innerHTML='<div style="color:#8295b0;font-size:12px;text-align:center;padding:20px;">No players.</div>'; return; }
+  let html='';
+  for(const j of liste){
+    const banni=j.banni;
+    html+='<div style="background:'+(banni?'#1c0f0f':'#12110a')+';border:1px solid '+(banni?'#5e2c2c':'#2a2818')+';border-radius:11px;padding:11px;margin-bottom:8px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+      '<div><span style="font-size:13px;font-weight:600;color:#fff;">'+j.nom+'</span>'+
+      (banni?' <span style="font-size:9px;background:#e2554a;color:#fff;padding:1px 6px;border-radius:6px;">BANNED</span>':'')+
+      '<div style="font-size:10.5px;color:#8295b0;margin-top:2px;">'+(j.email||'no email')+' · '+(j.planetes||0)+' planets</div></div></div>'+
+      '<div style="display:flex;gap:5px;margin-top:9px;flex-wrap:wrap;">'+
+      (banni
+        ? '<button data-act="unban" data-nom="'+j.nom+'" style="padding:5px 10px;border-radius:6px;border:none;background:#2a6a3a;color:#fff;font-size:11px;cursor:pointer;">Unban</button>'
+        : '<button data-act="ban" data-nom="'+j.nom+'" style="padding:5px 10px;border-radius:6px;border:none;background:#8a4020;color:#fff;font-size:11px;cursor:pointer;">Ban</button>')+
+      '<button data-act="reset-password" data-nom="'+j.nom+'" style="padding:5px 10px;border-radius:6px;border:1px solid #4a4020;background:transparent;color:#ffd84a;font-size:11px;cursor:pointer;">Reset pwd</button>'+
+      '<button data-act="delete" data-nom="'+j.nom+'" style="padding:5px 10px;border-radius:6px;border:1px solid #6e2c2c;background:transparent;color:#e2554a;font-size:11px;cursor:pointer;">Delete</button>'+
+      '</div></div>';
+  }
+  el.innerHTML=html;
+  el.querySelectorAll('button[data-act]').forEach(b=>{ b.onclick=()=>actionAdmin(b.dataset.act,b.dataset.nom); });
+}
+async function actionAdmin(action,cible){
+  let corps={jeton:MON_JETON,action,cible};
+  if(action==='delete'){ if(!confirm('Delete '+cible+' and all their data? This cannot be undone.')) return; }
+  if(action==='reset-password'){ const np=prompt('New password for '+cible+' (min 4 chars):'); if(!np||np.length<4) return; corps.nouveauMotDePasse=np; }
+  try{ const r=await fetch('/api/admin/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(corps)});
+    const d=await r.json();
+    if(d.message){ const inf=document.getElementById('info'); if(inf){ inf.style.opacity='1'; inf.textContent=d.message; setTimeout(()=>{inf.style.opacity='0';},3500); } }
+    await chargerAdminJoueurs();
+  }catch(e){ alert('Server unreachable'); }
 }
 async function rafraichirJoueurs(){
   try{ const r=await fetch('/api/joueurs'); const d=await r.json();
