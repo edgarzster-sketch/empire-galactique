@@ -129,7 +129,7 @@
 </div>
 <div id="jeu" style="display:none">
   <canvas id="sky"></canvas>
-  <div id="hud"><span class="pastille" id="hud-col"></span>Commander <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profile</span></div>
+  <div id="hud"><span class="pastille" id="hud-col"></span>Commander <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profile</span> <span id="hud-rapports" style="cursor:pointer;color:#ff9b7a;margin-left:8px;pointer-events:auto;position:relative;">⚔ reports<span id="rapports-badge" style="display:none;position:absolute;top:-8px;right:-10px;background:#e2554a;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;">0</span></span></div>
   <div id="bandeau-stock"></div>
   <div id="scale-badge">Galaxie</div>
   <div id="perf-badge"></div>
@@ -167,7 +167,11 @@
     <h3 id="profil-titre">Profile <span class="pp-close2" id="profil-close">✕</span></h3>
     <div id="profil-content"></div>
   </div>
-  <div id="version"><span id="ver">v3.0</span> · fleet movement (send + travel)</div>
+  <div id="panel-rapports" style="position:fixed;right:14px;top:54px;bottom:54px;width:380px;max-width:calc(100vw - 28px);z-index:11;background:linear-gradient(165deg,rgba(20,16,18,0.985),rgba(13,10,12,0.985));border:1px solid #5e2c2c;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.7);">
+    <h3 style="font-size:14px;color:#ff9b7a;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;">⚔ Battle reports <span class="pp-close2" id="rapports-close" style="cursor:pointer;">✕</span></h3>
+    <div id="rapports-content" style="overflow-y:auto;"></div>
+  </div>
+  <div id="version"><span id="ver">v3.1</span> · combat & conquest</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -280,6 +284,7 @@ async function demarrerAvecSession(d){
   setInterval(chargerStock,15000);
   setInterval(majBandeauStock,1000);
   chargerFlottes(); setInterval(chargerFlottes,3000);
+  chargerRapports(); setInterval(chargerRapports,6000);
   majBandeauStock();
 }
 
@@ -413,6 +418,16 @@ async function sauverProfile(){
 function daysDepuis(dateStr){ return Math.max(0,Math.floor((Date.now()-new Date(dateStr).getTime())/86400000)); }
 function escapeHtml(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 document.getElementById('hud-profil').addEventListener('click',()=>ouvrirProfile(MON_PSEUDO));
+document.getElementById('hud-rapports').addEventListener('click',async ()=>{
+  const pan=document.getElementById('panel-rapports');
+  const ouvert=pan.style.display==='flex';
+  if(ouvert){ pan.style.display='none'; return; }
+  await chargerRapports(); afficherRapports(); pan.style.display='flex';
+  // marquer comme lus
+  try{ await fetch('/api/rapports-lus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON})}); }catch(e){}
+  setTimeout(()=>{ const b=document.getElementById('rapports-badge'); if(b) b.style.display='none'; },500);
+});
+document.getElementById('rapports-close').addEventListener('click',()=>{ document.getElementById('panel-rapports').style.display='none'; });
 async function chargerPossessions(){
   try{ const r=await fetch('/api/possessions'); const d=await r.json();
     const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine,nom_perso:p.nom_perso}; }
@@ -424,6 +439,39 @@ async function chargerFlottes(){
   try{ const r=await fetch('/api/flottes?jeton='+encodeURIComponent(MON_JETON)); const d=await r.json();
     MES_FLOTTES=d.flottes||[];
   }catch(e){}
+}
+let RAPPORTS=[];
+async function chargerRapports(){
+  if(!MON_JETON) return;
+  try{ const r=await fetch('/api/rapports?jeton='+encodeURIComponent(MON_JETON)); const d=await r.json();
+    RAPPORTS=d.rapports||[];
+    const badge=document.getElementById('rapports-badge');
+    if(badge){ if(d.nonLus>0){ badge.style.display='block'; badge.textContent=d.nonLus; } else { badge.style.display='none'; } }
+  }catch(e){}
+}
+function afficherRapports(){
+  const el=document.getElementById('rapports-content'); if(!el) return;
+  if(RAPPORTS.length===0){ el.innerHTML='<div style="color:#8295b0;font-size:12px;font-style:italic;text-align:center;padding:20px;">No battle reports yet.</div>'; return; }
+  let html='';
+  for(const r of RAPPORTS){
+    const victoire=r.resultat==='victoire';
+    const col=victoire?'#5dcaa5':'#e2554a';
+    const titre=victoire?'Victory':'Defeat';
+    const role=r.vainqueur==='attaquant'? (victoire?'Conquest':'Attack failed') : (victoire?'Defense held':'Planet lost');
+    let pertesTxt='';
+    if(r.details){
+      const pa=r.details.pertesAtt||{}, pd=r.details.pertesDef||{};
+      const fmt=o=>Object.keys(o).length?Object.entries(o).map(([t,n])=>n+' '+(VAI_META[t]?VAI_META[t].nom:t)).join(', '):'none';
+      pertesTxt='<div style="font-size:10.5px;color:#8295b0;margin-top:6px;">Attacker losses: '+fmt(pa)+'<br>Defender losses: '+fmt(pd)+'</div>';
+    }
+    html+='<div style="background:'+(victoire?'#0d1c16':'#1c0f0f')+';border:1px solid '+col+'44;border-radius:11px;padding:12px;margin-bottom:10px;">'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;">'+
+      '<span style="font-size:13px;font-weight:600;color:'+col+';">'+titre+' · '+role+'</span>'+
+      (r.lu?'':'<span style="font-size:9px;background:#e2554a;color:#fff;padding:1px 6px;border-radius:6px;">NEW</span>')+'</div>'+
+      '<div style="font-size:11px;color:#cdd6e5;margin-top:4px;">📍 '+r.lieu+(r.adversaire?' · vs '+r.adversaire:'')+'</div>'+
+      pertesTxt+'</div>';
+  }
+  el.innerHTML=html;
 }
 async function rafraichirJoueurs(){
   try{ const r=await fetch('/api/joueurs'); const d=await r.json();
