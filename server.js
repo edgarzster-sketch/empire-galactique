@@ -132,7 +132,21 @@ async function preparerBase() {
       traitee BOOLEAN DEFAULT FALSE
     )
   `);
-  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions, vaisseaux, chantiers, flottes OK");
+  // rapports de bataille : un par combat, lu puis archive
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS rapports (
+      id SERIAL PRIMARY KEY,
+      joueur TEXT NOT NULL,
+      adversaire TEXT,
+      lieu TEXT NOT NULL,
+      vainqueur TEXT NOT NULL,
+      resultat TEXT NOT NULL,
+      details TEXT,
+      cree_le TIMESTAMPTZ DEFAULT NOW(),
+      lu BOOLEAN DEFAULT FALSE
+    )
+  `);
+  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions, vaisseaux, chantiers, flottes, rapports OK");
 }
 
 // helper : une adresse est-elle deja occupee ?
@@ -775,19 +789,103 @@ async function traiterArrivees(joueur) {
       }
       await pool.query("UPDATE flottes SET traitee=TRUE, mission='colonisation' WHERE id=$1", [f.id]);
     } else {
-      // planete ennemie ou libre sans colonisateur : a l'etape 4 (combat).
-      // pour l'instant la flotte fait demi-tour et rentre a l'origine.
-      const compoStr = f.composition;
-      const vit = galaxy.vitesseFlotte(compo);
-      const oa = galaxy.parseAddr(f.origine), od = galaxy.parseAddr(f.destination);
-      const duree = galaxy.dureeTrajet(od.sysIdx, oa.sysIdx, vit) || 120;
-      await pool.query(
-        "UPDATE flottes SET origine=$1, destination=$2, depart=NOW(), arrivee=NOW() + ($3 || ' seconds')::interval, mission='retour' WHERE id=$4",
-        [f.destination, f.origine, duree, f.id]
-      );
+      // === COMBAT === planete ennemie (ou libre sans colonisateur)
+      // 1) defense locale : garnison stationnee + bonus caserne
+      const garnisonR = await pool.query("SELECT type, nombre FROM vaisseaux WHERE addr=$1 AND nombre > 0", [f.destination]);
+      const garnison = {}; for (const row of garnisonR.rows) garnison[row.type] = row.nombre;
+      const niveaux = await niveauxBatiments(f.destination);
+      const defenseBonus = (niveaux.caserne || 0) * 100;  // caserne : +100 def/niv
+
+      // 2) resolution
+      const combat = galaxy.resoudreCombat(compo, garnison, defenseBonus);
+      const attRest = combat.attaquantRestant, defRest = combat.defenseurRestant;
+      const attTotal = Object.values(attRest).reduce((s,n)=>s+n,0);
+      const defTotal = Object.values(defRest).reduce((s,n)=>s+n,0);
+
+      // pertes (pour le rapport)
+      function pertes(avant, apres){ const p={}; for(const t in avant){ const d=(avant[t]||0)-(apres[t]||0); if(d>0) p[t]=d; } return p; }
+      const pertesAtt = pertes(compo, attRest);
+      const pertesDef = pertes(garnison, defRest);
+
+      // 3) met a jour la garnison defensive (survivants)
+      for (const type in garnison) {
+        await pool.query("UPDATE vaisseaux SET nombre=$1 WHERE addr=$2 AND type=$3", [defRest[type] || 0, f.destination, type]);
+      }
+
+      const details = JSON.stringify({ attaquant: compo, defenseur: garnison, pertesAtt, pertesDef, defenseBonus });
+
+      if (combat.vainqueur === "attaquant") {
+        // CONQUETE : la planete change de proprietaire, les survivants s'y posent
+        if (proprio) {
+          await pool.query("UPDATE possessions SET joueur=$1, origine=FALSE WHERE addr=$2", [f.joueur, f.destination]);
+        } else {
+          await pool.query("INSERT INTO possessions (addr, joueur, origine) VALUES ($1,$2,FALSE) ON CONFLICT (addr) DO UPDATE SET joueur=$2", [f.destination, f.joueur]);
+        }
+        // on vide l'ancienne garnison et on pose les survivants de l'attaquant
+        await pool.query("DELETE FROM vaisseaux WHERE addr=$1", [f.destination]);
+        for (const type in attRest) {
+          if (attRest[type] <= 0) continue;
+          await pool.query(
+            `INSERT INTO vaisseaux (addr, type, nombre) VALUES ($1,$2,$3)
+             ON CONFLICT (addr, type) DO UPDATE SET nombre = vaisseaux.nombre + $3`,
+            [f.destination, type, attRest[type]]
+          );
+        }
+        await pool.query("UPDATE flottes SET traitee=TRUE, mission='conquete' WHERE id=$1", [f.id]);
+        // rapports
+        await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'attaquant','victoire',$4)", [f.joueur, proprio, f.destination, details]);
+        if (proprio) await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'attaquant','defaite',$4)", [proprio, f.joueur, f.destination, details]);
+      } else {
+        // DEFENSE TIENT : les survivants de l'attaquant rentrent a l'origine
+        const survivants = {}; for (const t in attRest) if (attRest[t] > 0) survivants[t] = attRest[t];
+        const total = Object.values(survivants).reduce((s,n)=>s+n,0);
+        if (total > 0) {
+          const vit = galaxy.vitesseFlotte(survivants);
+          const oa = galaxy.parseAddr(f.origine), od = galaxy.parseAddr(f.destination);
+          const duree = galaxy.dureeTrajet(od.sysIdx, oa.sysIdx, vit) || 120;
+          await pool.query(
+            "UPDATE flottes SET origine=$1, destination=$2, composition=$3, depart=NOW(), arrivee=NOW() + ($4 || ' seconds')::interval, mission='retour' WHERE id=$5",
+            [f.destination, f.origine, JSON.stringify(survivants), duree, f.id]
+          );
+        } else {
+          // flotte aneantie
+          await pool.query("UPDATE flottes SET traitee=TRUE, mission='detruite' WHERE id=$1", [f.id]);
+        }
+        await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'defenseur','defaite',$4)", [f.joueur, proprio, f.destination, details]);
+        if (proprio) await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'defenseur','victoire',$4)", [proprio, f.joueur, f.destination, details]);
+      }
     }
   }
 }
+
+// GET rapports de bataille du joueur (non lus en priorite)
+app.get("/api/rapports", async (req, res) => {
+  const jeton = (req.query.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    const r = await pool.query(
+      "SELECT id, adversaire, lieu, vainqueur, resultat, details, cree_le, lu FROM rapports WHERE joueur=$1 ORDER BY cree_le DESC LIMIT 30", [pseudo]
+    );
+    const rapports = r.rows.map(x => ({
+      id: x.id, adversaire: x.adversaire, lieu: x.lieu, vainqueur: x.vainqueur,
+      resultat: x.resultat, details: x.details ? JSON.parse(x.details) : null, cree_le: x.cree_le, lu: x.lu
+    }));
+    const nonLus = rapports.filter(x => !x.lu).length;
+    res.json({ rapports, nonLus });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST marquer les rapports comme lus
+app.post("/api/rapports-lus", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    await pool.query("UPDATE rapports SET lu=TRUE WHERE joueur=$1", [pseudo]);
+    res.json({ succes: true });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
 
 // GET flottes en mouvement du joueur (pour affichage sur la carte)
 app.get("/api/flottes", async (req, res) => {
@@ -858,6 +956,33 @@ app.post("/api/envoyer", async (req, res) => {
     await client.query("ROLLBACK").catch(()=>{});
     res.status(500).json({ erreur: e.message });
   } finally { client.release(); }
+});
+
+// ============================================================
+//  RESET MOT DE PASSE (admin) — protege par cle secrete.
+//  Definis ADMIN_RESET_KEY dans les variables d'environnement Render.
+//  Usage : POST /api/admin-reset { cle, pseudo, nouveauMotDePasse }
+// ============================================================
+app.post("/api/admin-reset", async (req, res) => {
+  const cle = (req.body.cle || "").trim();
+  const pseudo = (req.body.pseudo || "").trim().slice(0, 20);
+  const nouveau = (req.body.nouveauMotDePasse || "");
+  const cleAttendue = process.env.ADMIN_RESET_KEY || "";
+  if (!cleAttendue) return res.status(403).json({ erreur: "Reset disabled (no ADMIN_RESET_KEY set on server)." });
+  if (cle !== cleAttendue) return res.status(403).json({ erreur: "Invalid reset key." });
+  if (pseudo.length < 2 || nouveau.length < 4) return res.status(400).json({ erreur: "Invalid username or password (min 4 chars)." });
+  try {
+    const existe = await pool.query("SELECT nom FROM joueurs WHERE LOWER(nom)=LOWER($1)", [pseudo]);
+    const hash = auth.hacherMotDePasse(nouveau);
+    if (existe.rows.length === 0) {
+      // le compte n'existe pas : on le cree
+      await pool.query("INSERT INTO joueurs (nom, mdp_hash) VALUES ($1,$2)", [pseudo, hash]);
+      const home = await assurerHome(pseudo);
+      return res.json({ succes: true, message: "Account created with new password.", home });
+    }
+    await pool.query("UPDATE joueurs SET mdp_hash=$1 WHERE LOWER(nom)=LOWER($2)", [hash, pseudo]);
+    res.json({ succes: true, message: "Password reset for " + existe.rows[0].nom + "." });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
 app.get("/sante", (req, res) => res.json({ statut: "ok", version: "1.0" }));
