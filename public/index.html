@@ -203,7 +203,7 @@
     <div id="recherche-onglets" style="display:flex;gap:6px;margin-bottom:12px;"></div>
     <div id="recherche-content" style="overflow-y:auto;"></div>
   </div>
-  <div id="version"><span id="ver">v3.7</span> · research bonuses live</div>
+  <div id="version"><span id="ver">v3.8</span> · storage cap + refining</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -872,23 +872,30 @@ let stockTimestamp=0; // quand on a recu le stock
 async function chargerStock(){
   if(!MON_PSEUDO) return;
   try{ const r=await fetch('/api/stock?pseudo='+encodeURIComponent(MON_PSEUDO)); const d=await r.json();
-    STOCK=d.stock||{}; PROD_H=d.productionHoraire||{}; stockTimestamp=Date.now();
+    STOCK=d.stock||{}; PROD_H=d.productionHoraire||{}; CAPACITE=d.capacite||0; stockTimestamp=Date.now();
   }catch(e){}
 }
+let CAPACITE=0;
 function majBandeauStock(){
   const el=document.getElementById('bandeau-stock'); if(!el) return;
   const keys=Object.keys(STOCK).filter(k=>STOCK[k]>0 || PROD_H[k]>0);
   if(keys.length===0){ el.innerHTML='<span class="res-empty">No resources — colonize a planet to produce</span>'; return; }
   // tri par rareté décroissante puis quantité
   keys.sort((a,b)=>(RES_META[b]?.tier||0)-(RES_META[a]?.tier||0) || STOCK[b]-STOCK[a]);
-  // interpolation : quantité affichée = stock + prod * temps écoulé
+  // interpolation : quantité affichée = stock + prod * temps écoulé (plafonnée à la capacité)
   const ecoule=(Date.now()-stockTimestamp)/3600000; // en heures
   let html='';
   for(const k of keys.slice(0,12)){ const m=RES_META[k]; if(!m) continue;
-    const qte=(STOCK[k]||0)+(PROD_H[k]||0)*ecoule;
-    const prodTxt=PROD_H[k]?'<span class="res-prod">+'+(PROD_H[k]).toFixed(PROD_H[k]<1?2:0)+'/h</span>':'';
-    html+='<div class="res-item">'+elemPill(k,24)+'<span style="margin-left:5px;">'+Math.floor(qte).toLocaleString('fr-FR')+'</span>'+prodTxt+'</div>';
+    let qte=(STOCK[k]||0)+(PROD_H[k]||0)*ecoule;
+    if(CAPACITE>0 && qte>CAPACITE) qte=CAPACITE; // plafond visuel
+    const plein=CAPACITE>0 && qte>=CAPACITE*0.98;
+    const proche=CAPACITE>0 && qte>=CAPACITE*0.85;
+    const prodTxt=PROD_H[k]?'<span class="res-prod" style="'+(plein?'color:#e2554a;':'')+'">'+(plein?'FULL':'+'+(PROD_H[k]).toFixed(PROD_H[k]<1?2:0)+'/h')+'</span>':'';
+    const col=plein?'color:#e2554a;':(proche?'color:#ffb05a;':'');
+    html+='<div class="res-item">'+elemPill(k,24)+'<span style="margin-left:5px;'+col+'">'+Math.floor(qte).toLocaleString('fr-FR')+'</span>'+prodTxt+'</div>';
   }
+  // indicateur de capacité globale
+  if(CAPACITE>0){ html+='<div class="res-item" style="opacity:0.6;font-size:10px;">📦 cap '+CAPACITE.toLocaleString('fr-FR')+'</div>'; }
   el.innerHTML=html;
 }
 // ============================================================
