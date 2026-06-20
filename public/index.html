@@ -141,7 +141,7 @@
 </div>
 <div id="jeu" style="display:none">
   <canvas id="sky"></canvas>
-  <div id="hud"><span class="pastille" id="hud-col"></span>Commander <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profile</span> <span id="hud-rapports" style="cursor:pointer;color:#ff9b7a;margin-left:8px;pointer-events:auto;position:relative;">⚔ reports<span id="rapports-badge" style="display:none;position:absolute;top:-8px;right:-10px;background:#e2554a;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;">0</span></span> <span id="hud-admin" style="display:none;cursor:pointer;color:#ffd84a;margin-left:8px;pointer-events:auto;">⚙ admin</span></div>
+  <div id="hud"><span class="pastille" id="hud-col"></span>Commander <strong id="moncom">—</strong> <span id="hud-profil" style="cursor:pointer;color:#9bb8ff;margin-left:6px;pointer-events:auto;">⚙ profile</span> <span id="hud-rapports" style="cursor:pointer;color:#ff9b7a;margin-left:8px;pointer-events:auto;position:relative;">⚔ reports<span id="rapports-badge" style="display:none;position:absolute;top:-8px;right:-10px;background:#e2554a;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;">0</span></span> <span id="hud-journal" style="cursor:pointer;color:#7cc6ff;margin-left:8px;pointer-events:auto;position:relative;">📋 log<span id="journal-badge" style="display:none;position:absolute;top:-8px;right:-10px;background:#e2554a;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;">0</span></span> <span id="hud-recherche" style="cursor:pointer;color:#a98aff;margin-left:8px;pointer-events:auto;">🔬 research</span> <span id="hud-classement" style="cursor:pointer;color:#ffd84a;margin-left:8px;pointer-events:auto;">🏆 ranks</span> <span id="hud-admin" style="display:none;cursor:pointer;color:#ffd84a;margin-left:8px;pointer-events:auto;">⚙ admin</span></div>
   <div id="bandeau-stock"></div>
   <div id="scale-badge">Galaxie</div>
   <div id="perf-badge"></div>
@@ -188,7 +188,22 @@
     <input id="admin-search" type="text" placeholder="Search players..." style="width:100%;padding:8px;margin-bottom:10px;border-radius:8px;border:1px solid #4a4020;background:#0a0a06;color:#fff;font-size:12px;box-sizing:border-box;">
     <div id="admin-content" style="overflow-y:auto;"></div>
   </div>
-  <div id="version"><span id="ver">v3.2</span> · account recovery + admin moderation</div>
+  <div id="panel-classement" style="position:fixed;right:14px;top:54px;bottom:54px;width:400px;max-width:calc(100vw - 28px);z-index:11;background:linear-gradient(165deg,rgba(18,17,10,0.985),rgba(11,10,7,0.985));border:1px solid #6e5c1c;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.7);">
+    <h3 style="font-size:14px;color:#ffd84a;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">🏆 Leaderboard <span class="pp-close2" id="classement-close" style="cursor:pointer;">✕</span></h3>
+    <div id="classement-onglets" style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;"></div>
+    <div id="classement-content" style="overflow-y:auto;"></div>
+  </div>
+  <div id="panel-journal" style="position:fixed;right:14px;top:54px;bottom:54px;width:380px;max-width:calc(100vw - 28px);z-index:11;background:linear-gradient(165deg,rgba(10,16,22,0.985),rgba(7,11,16,0.985));border:1px solid #2c4e6e;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.7);">
+    <h3 style="font-size:14px;color:#7cc6ff;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">📋 Event log <span class="pp-close2" id="journal-close" style="cursor:pointer;">✕</span></h3>
+    <div id="journal-content" style="overflow-y:auto;"></div>
+  </div>
+  <div id="panel-recherche" style="position:fixed;right:14px;top:54px;bottom:54px;width:440px;max-width:calc(100vw - 28px);z-index:11;background:linear-gradient(165deg,rgba(16,12,24,0.985),rgba(10,8,16,0.985));border:1px solid #4a3a6e;border-radius:16px;padding:18px;display:none;flex-direction:column;box-shadow:0 16px 60px rgba(0,0,0,0.7);">
+    <h3 style="font-size:14px;color:#a98aff;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">🔬 Research <span class="pp-close2" id="recherche-close" style="cursor:pointer;">✕</span></h3>
+    <div id="recherche-points" style="font-size:12px;color:#cdd6e5;margin-bottom:12px;padding:10px;background:#1a1430;border-radius:10px;border:1px solid #3a2e5e;"></div>
+    <div id="recherche-onglets" style="display:flex;gap:6px;margin-bottom:12px;"></div>
+    <div id="recherche-content" style="overflow-y:auto;"></div>
+  </div>
+  <div id="version"><span id="ver">v3.7</span> · research bonuses live</div>
   <div id="popup">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;">
       <div id="pp-nom" style="font-size:15px;font-weight:600;">—</div>
@@ -340,6 +355,7 @@ async function demarrerAvecSession(d){
   setInterval(majBandeauStock,1000);
   chargerFlottes(); setInterval(chargerFlottes,3000);
   chargerRapports(); setInterval(chargerRapports,6000);
+  chargerEvenements(); setInterval(chargerEvenements,6000);
   majBandeauStock();
 }
 
@@ -491,6 +507,29 @@ document.getElementById('hud-admin').addEventListener('click',async()=>{
 });
 document.getElementById('admin-close').addEventListener('click',()=>{ document.getElementById('panel-admin').style.display='none'; });
 document.getElementById('admin-search').addEventListener('input',afficherAdminJoueurs);
+// bouton classement
+document.getElementById('hud-classement').addEventListener('click',async()=>{
+  const pan=document.getElementById('panel-classement');
+  if(pan.style.display==='flex'){ pan.style.display='none'; return; }
+  await chargerClassements(); pan.style.display='flex';
+});
+document.getElementById('classement-close').addEventListener('click',()=>{ document.getElementById('panel-classement').style.display='none'; });
+// journal d'evenements
+document.getElementById('hud-journal').addEventListener('click',async()=>{
+  const pan=document.getElementById('panel-journal');
+  if(pan.style.display==='flex'){ pan.style.display='none'; return; }
+  await chargerEvenements(); afficherEvenements(); pan.style.display='flex';
+  try{ await fetch('/api/evenements-lus',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON})}); }catch(e){}
+  setTimeout(()=>{ const b=document.getElementById('journal-badge'); if(b) b.style.display='none'; },500);
+});
+document.getElementById('journal-close').addEventListener('click',()=>{ document.getElementById('panel-journal').style.display='none'; });
+// recherche
+document.getElementById('hud-recherche').addEventListener('click',async()=>{
+  const pan=document.getElementById('panel-recherche');
+  if(pan.style.display==='flex'){ pan.style.display='none'; return; }
+  await chargerRecherche(); pan.style.display='flex';
+});
+document.getElementById('recherche-close').addEventListener('click',()=>{ document.getElementById('panel-recherche').style.display='none'; });
 async function chargerPossessions(){
   try{ const r=await fetch('/api/possessions'); const d=await r.json();
     const map={}; for(const p of (d.possessions||[])){ map[p.addr]={joueur:p.joueur,origine:p.origine,nom_perso:p.nom_perso}; }
@@ -511,6 +550,93 @@ async function chargerRapports(){
     const badge=document.getElementById('rapports-badge');
     if(badge){ if(d.nonLus>0){ badge.style.display='block'; badge.textContent=d.nonLus; } else { badge.style.display='none'; } }
   }catch(e){}
+}
+let EVENEMENTS=[];
+const EVT_ICONES={conquete:'🚩',planete_perdue:'💥',defense:'🛡️',attaque_echouee:'❌',colonisation:'🌍',flotte_arrivee:'🚀',flotte_retour:'↩️',construction:'⚒️',alerte_attaque:'⚠️',titre:'🏅'};
+async function chargerEvenements(){
+  if(!MON_JETON) return;
+  try{ const r=await fetch('/api/evenements?jeton='+encodeURIComponent(MON_JETON)); const d=await r.json();
+    EVENEMENTS=d.evenements||[];
+    const badge=document.getElementById('journal-badge');
+    if(badge){ if(d.nonLus>0){ badge.style.display='block'; badge.textContent=d.nonLus; } else { badge.style.display='none'; } }
+    // si le panneau est ouvert, rafraichir
+    if(document.getElementById('panel-journal').style.display==='flex') afficherEvenements();
+  }catch(e){}
+}
+function tempsRelatif(date){
+  const s=Math.floor((Date.now()-new Date(date).getTime())/1000);
+  if(s<60) return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+function afficherEvenements(){
+  const el=document.getElementById('journal-content'); if(!el) return;
+  if(EVENEMENTS.length===0){ el.innerHTML='<div style="color:#8295b0;font-size:12px;font-style:italic;text-align:center;padding:20px;">No events yet.</div>'; return; }
+  let html='';
+  for(const e of EVENEMENTS){
+    const alerte=e.type==='alerte_attaque'||e.type==='planete_perdue';
+    const icone=EVT_ICONES[e.type]||'•';
+    html+='<div style="display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:9px;margin-bottom:6px;background:'+(alerte?'#1c0f0f':(e.lu?'#0c141e':'#0e1c2a'))+';border:1px solid '+(alerte?'#6e2c2c':(e.lu?'#1a2733':'#2c4e6e'))+';">'+
+      '<span style="font-size:15px;flex-shrink:0;">'+icone+'</span>'+
+      '<div style="flex:1;min-width:0;"><div style="font-size:12px;color:'+(alerte?'#ff9b7a':'#d4e2f0')+';line-height:1.4;">'+e.message+'</div>'+
+      '<div style="font-size:10px;color:#6a7a95;margin-top:3px;">'+tempsRelatif(e.cree_le)+(e.lu?'':' · <span style="color:#7cc6ff;">new</span>')+'</div></div></div>';
+  }
+  el.innerHTML=html;
+}
+// ===== RECHERCHE (arbre techno) =====
+let RECHERCHE=null;
+let RECH_FAMILLE='economie';
+const RECH_FAMILLES=[{key:'economie',label:'💰 Economy'},{key:'militaire',label:'⚔ Military'},{key:'expansion',label:'🌍 Expansion'}];
+const FAM_COL={economie:'#5dca8a',militaire:'#ff8a6a',expansion:'#7cc6ff'};
+async function chargerRecherche(){
+  if(!MON_JETON) return;
+  try{ const r=await fetch('/api/recherche?jeton='+encodeURIComponent(MON_JETON)); RECHERCHE=await r.json(); afficherRecherche(); }
+  catch(e){}
+}
+function afficherRecherche(){
+  if(!RECHERCHE) return;
+  // bandeau points
+  const pts=document.getElementById('recherche-points');
+  pts.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;"><span>🔬 <b style="color:#c4aaff;font-size:15px;">'+RECHERCHE.points.toLocaleString()+'</b> research points</span>'+
+    '<span style="font-size:11px;color:#8295b0;">+'+RECHERCHE.parHeure+'/h · Lab lvl '+RECHERCHE.nivLabo+'</span></div>'+
+    (RECHERCHE.nivLabo===0?'<div style="font-size:11px;color:#ff9b7a;margin-top:6px;">⚠ Build a Laboratory to generate research points.</div>':'');
+  // onglets familles
+  const ong=document.getElementById('recherche-onglets');
+  ong.innerHTML=RECH_FAMILLES.map(f=>{ const actif=RECH_FAMILLE===f.key; const c=FAM_COL[f.key];
+    return '<span data-fam="'+f.key+'" style="flex:1;text-align:center;font-size:11px;padding:7px;border-radius:8px;cursor:pointer;'+(actif?'background:'+c+'22;color:'+c+';border:1px solid '+c+'66;':'background:transparent;color:#7a8aa5;border:1px solid #2a3a52;')+'">'+f.label+'</span>';
+  }).join('');
+  ong.querySelectorAll('span[data-fam]').forEach(s=>{ s.onclick=()=>{ RECH_FAMILLE=s.dataset.fam; afficherRecherche(); }; });
+  // technos de la famille
+  const el=document.getElementById('recherche-content');
+  const codes=Object.keys(RECHERCHE.arbre).filter(c=>RECHERCHE.arbre[c].famille===RECH_FAMILLE);
+  const col=FAM_COL[RECH_FAMILLE];
+  let html='';
+  for(const code of codes){ const t=RECHERCHE.arbre[code];
+    const max=t.niveau>=t.max;
+    const peut=t.prerequisOk && !max && t.coutProchain!==null && RECHERCHE.points>=t.coutProchain;
+    const bloque=!t.prerequisOk;
+    // texte prérequis
+    let prereqTxt='';
+    if(bloque){ const reqs=Object.entries(t.prerequis).map(([k,v])=>(RECHERCHE.arbre[k]?RECHERCHE.arbre[k].nom:k)+' '+v).join(', '); prereqTxt='<div style="font-size:10px;color:#ff8a6a;margin-top:3px;">🔒 Requires '+reqs+'</div>'; }
+    html+='<div style="background:#140f22;border:1px solid '+(bloque?'#3a2e3e':col+'33')+';border-radius:12px;padding:12px;margin-bottom:9px;opacity:'+(bloque?'0.6':'1')+';">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;">'+
+      '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:#fff;">'+t.nom+' <span style="font-size:11px;color:'+col+';">'+(t.niveau>0?'Lv '+t.niveau:'')+'</span></div>'+
+      '<div style="font-size:11px;color:#9aa8bf;margin-top:3px;">'+t.desc+'</div>'+prereqTxt+'</div></div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">'+
+      '<span style="font-size:11px;color:#8295b0;">'+(max?'<span style="color:'+col+';">MAX ('+t.max+')</span>':'Next: 🔬 '+t.coutProchain.toLocaleString()+' · Lv '+(t.niveau+1)+'/'+t.max)+'</span>'+
+      (max?'':'<button data-tech="'+code+'" '+(peut?'':'disabled')+' style="padding:6px 14px;border-radius:7px;border:none;font-size:11px;font-weight:600;'+(peut?'background:linear-gradient(90deg,'+col+','+col+'cc);color:#0a0a12;cursor:pointer;':'background:#241a34;color:#5b6b8a;cursor:not-allowed;')+'">Research</button>')+
+      '</div></div>';
+  }
+  el.innerHTML=html;
+  el.querySelectorAll('button[data-tech]').forEach(b=>{ b.onclick=()=>rechercherTechno(b.dataset.tech); });
+}
+async function rechercherTechno(code){
+  try{ const r=await fetch('/api/rechercher',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jeton:MON_JETON,code})});
+    const d=await r.json();
+    if(d.succes){ await chargerRecherche(); await chargerStock(); }
+    else { alert(d.message||'Research failed'); }
+  }catch(e){ alert('Server unreachable'); }
 }
 function afficherRapports(){
   const el=document.getElementById('rapports-content'); if(!el) return;
@@ -577,6 +703,49 @@ async function actionAdmin(action,cible){
     if(d.message){ const inf=document.getElementById('info'); if(inf){ inf.style.opacity='1'; inf.textContent=d.message; setTimeout(()=>{inf.style.opacity='0';},3500); } }
     await chargerAdminJoueurs();
   }catch(e){ alert('Server unreachable'); }
+}
+// ===== CLASSEMENTS (leaderboard) =====
+let CLASSEMENTS=null;
+let CLASS_ONGLET='score';
+const CLASS_CATS=[
+  {key:'score',label:'🏆 Score',unite:'pts',champ:'score'},
+  {key:'planetes',label:'🪐 Planets',unite:'',champ:'valeur'},
+  {key:'developpement',label:'⚒ Development',unite:'lvl',champ:'valeur'},
+  {key:'puissance',label:'⚔ Power',unite:'',champ:'tier'}
+];
+async function chargerClassements(){
+  try{ const r=await fetch('/api/classements'); CLASSEMENTS=await r.json(); afficherClassement(); }
+  catch(e){}
+}
+function afficherClassement(){
+  if(!CLASSEMENTS) return;
+  // onglets
+  const ong=document.getElementById('classement-onglets');
+  ong.innerHTML=CLASS_CATS.map(c=>{ const actif=CLASS_ONGLET===c.key;
+    return '<span data-cat="'+c.key+'" style="font-size:11px;padding:5px 11px;border-radius:20px;cursor:pointer;'+(actif?'background:#ffd84a22;color:#ffd84a;border:1px solid #ffd84a66;':'background:transparent;color:#7a8aa5;border:1px solid #2a3a52;')+'">'+c.label+'</span>';
+  }).join('');
+  ong.querySelectorAll('span[data-cat]').forEach(s=>{ s.onclick=()=>{ CLASS_ONGLET=s.dataset.cat; afficherClassement(); }; });
+  // liste
+  const cat=CLASS_CATS.find(c=>c.key===CLASS_ONGLET);
+  const liste=CLASSEMENTS[CLASS_ONGLET]||[];
+  const el=document.getElementById('classement-content');
+  if(liste.length===0){ el.innerHTML='<div style="color:#8295b0;font-size:12px;text-align:center;padding:20px;">No players ranked yet.</div>'; return; }
+  let html='';
+  for(const r of liste){
+    const moi=r.nom===MON_PSEUDO;
+    const medaille=r.rang===1?'🥇':r.rang===2?'🥈':r.rang===3?'🥉':'<span style="color:#6a7a95;font-size:12px;">#'+r.rang+'</span>';
+    let val;
+    if(CLASS_ONGLET==='score') val=r.score+' pts'+(r.planetes!==undefined?' · '+r.planetes+'🪐':'');
+    else if(CLASS_ONGLET==='puissance') val='Tier '+r.tier;
+    else val=r.valeur+(cat.unite?' '+cat.unite:'');
+    const c=couleurJoueur(r.nom);
+    html+='<div style="display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;margin-bottom:6px;background:'+(moi?'#ffd84a18':'#0e1726')+';border:1px solid '+(moi?'#ffd84a55':'#1f2c3f')+';">'+
+      '<div style="width:28px;text-align:center;font-size:15px;">'+medaille+'</div>'+
+      '<span style="width:10px;height:10px;border-radius:50%;background:'+c+';flex-shrink:0;"></span>'+
+      '<span style="flex:1;font-size:13px;color:'+(moi?'#ffd84a':'#fff')+';font-weight:'+(moi?'600':'400')+';">'+r.nom+(moi?' (you)':'')+'</span>'+
+      '<span style="font-size:12px;color:#bfc8d8;">'+val+'</span></div>';
+  }
+  el.innerHTML=html;
 }
 async function rafraichirJoueurs(){
   try{ const r=await fetch('/api/joueurs'); const d=await r.json();
@@ -658,7 +827,8 @@ const BAT_META={
   caserne:{nom:"Orbital Barracks",desc:"Planetary defense",branche:"militaire",col:"#ed93b1",effet:"+100 defense / level"},
   laboratoire:{nom:"Laboratory",desc:"Advanced research",branche:"avance",col:"#afa9ec",effet:"Unlocks technologies"},
   chantier:{nom:"Shipyard",desc:"Builds ships",branche:"avance",col:"#f0997b",effet:"Ship production"},
-  arsenal:{nom:"Stellar Arsenal",desc:"War fleets",branche:"avance",col:"#f0997b",effet:"Military ships"}
+  arsenal:{nom:"Stellar Arsenal",desc:"War fleets",branche:"avance",col:"#f0997b",effet:"Military ships"},
+  radar:{nom:"Detection Array",desc:"Detects incoming attacks",branche:"avance",col:"#5dd0c0",effet:"Early warning"}
 };
 // icones SVG des batiments (dessinees, sans dependance externe)
 function batIcone(code,size){
@@ -672,11 +842,12 @@ function batIcone(code,size){
     caserne:'<ellipse cx="32" cy="53" rx="21" ry="6" fill="#000" opacity="0.25"/><path d="M16 36 L32 44 L32 52 L16 44 Z" fill="#6e2440"/><path d="M48 36 L32 44 L32 52 L48 44 Z" fill="#933556"/><path d="M16 36 L32 28 L48 36 L32 44 Z" fill="#a8425e"/><path d="M22 33 L32 28 L42 33 L32 38 Z" fill="#7a2848"/><path d="M26 22 L32 25 L32 33 L26 30 Z" fill="#7a2848"/><path d="M38 22 L32 25 L32 33 L38 30 Z" fill="#a33a5e"/><path d="M26 22 L32 19 L38 22 L32 25 Z" fill="#933556"/><path d="M30 12 L31 19 L33 19 L34 12 Z" fill="#8a96a8"/><circle cx="32" cy="11" r="2" fill="#ff5a7a"/><path d="M28 40 L30 39 L30 45 L28 46 Z" fill="#2a1020"/><path d="M36 40 L34 39 L34 45 L36 46 Z" fill="#2a1020"/>',
     laboratoire:'<ellipse cx="32" cy="53" rx="20" ry="6" fill="#000" opacity="0.25"/><path d="M18 36 L32 44 L32 52 L18 44 Z" fill="#3a2f6e"/><path d="M46 36 L32 44 L32 52 L46 44 Z" fill="#4d4088"/><path d="M18 36 L32 28 L46 36 L32 44 Z" fill="#5a4d9e"/><path d="M22 28 Q22 16 32 16 Q42 16 42 28 Z" fill="#7f77dd" opacity="0.35"/><path d="M22 28 Q22 16 32 16 Q42 16 42 28" fill="none" stroke="#afa9ec" stroke-width="1"/><line x1="22" y1="28" x2="42" y2="28" stroke="#afa9ec" stroke-width="0.8"/><circle cx="32" cy="24" r="3" fill="#d8d4f8"/><circle cx="27" cy="22" r="1.5" fill="#b8b0f0"/><circle cx="37" cy="25" r="1.2" fill="#b8b0f0"/><path d="M32 24 L27 22 M32 24 L37 25 M32 24 L32 19" stroke="#d8d4f8" stroke-width="0.5" opacity="0.7"/><circle cx="32" cy="19" r="1" fill="#d8d4f8"/>',
     chantier:'<ellipse cx="32" cy="54" rx="22" ry="6" fill="#000" opacity="0.25"/><path d="M14 40 L32 48 L32 54 L14 46 Z" fill="#3a4656"/><path d="M50 40 L32 48 L32 54 L50 46 Z" fill="#4a586a"/><path d="M14 40 L32 32 L50 40 L32 48 Z" fill="#5a6b7e"/><path d="M28 12 Q28 8 32 6 Q36 8 36 12 L36 38 L28 38 Z" fill="#d0d8e4" stroke="#eef2f8" stroke-width="0.7"/><path d="M32 6 Q36 8 36 12 L36 38 L32 38 Z" fill="#a8b4c4"/><ellipse cx="32" cy="16" rx="2" ry="2.5" fill="#5a9bd8"/><path d="M28 38 L25 44 L28 42 Z" fill="#76889e"/><path d="M36 38 L39 44 L36 42 Z" fill="#5a6b7e"/><path d="M30 38 L34 38 L33 43 L31 43 Z" fill="#ffb05a"/><path d="M30.5 43 L33.5 43 L32 50 Z" fill="#ff6a2a"/><line x1="20" y1="30" x2="27" y2="33" stroke="#6a7a90" stroke-width="1.8"/><line x1="44" y1="30" x2="37" y2="33" stroke="#6a7a90" stroke-width="1.8"/><circle cx="20" cy="30" r="1.5" fill="#8a96a8"/><circle cx="44" cy="30" r="1.5" fill="#8a96a8"/>',
-    arsenal:'<ellipse cx="32" cy="53" rx="21" ry="6" fill="#000" opacity="0.25"/><path d="M16 38 L32 46 L32 52 L16 44 Z" fill="#5a2818"/><path d="M48 38 L32 46 L32 52 L48 44 Z" fill="#7a3520"/><path d="M16 38 L32 30 L48 38 L32 46 Z" fill="#933f1d"/><path d="M24 35 L32 31 L40 35 L32 39 Z" fill="#3a2418"/><ellipse cx="32" cy="35" rx="6" ry="3" fill="#1a1410"/><path d="M30 35 L26 18" stroke="#6a7a90" stroke-width="3" stroke-linecap="round"/><path d="M34 35 L40 20" stroke="#8a96a8" stroke-width="3" stroke-linecap="round"/><path d="M26 18 L23 14" stroke="#aab8cc" stroke-width="2.5" stroke-linecap="round"/><path d="M40 20 L44 16" stroke="#c0cde0" stroke-width="2.5" stroke-linecap="round"/><circle cx="22" cy="13" r="2" fill="#ff8a4a"/><circle cx="45" cy="15" r="2" fill="#ffb05a"/><rect x="29" y="40" width="6" height="3" fill="#d85a30" opacity="0.7"/>'
+    arsenal:'<ellipse cx="32" cy="53" rx="21" ry="6" fill="#000" opacity="0.25"/><path d="M16 38 L32 46 L32 52 L16 44 Z" fill="#5a2818"/><path d="M48 38 L32 46 L32 52 L48 44 Z" fill="#7a3520"/><path d="M16 38 L32 30 L48 38 L32 46 Z" fill="#933f1d"/><path d="M24 35 L32 31 L40 35 L32 39 Z" fill="#3a2418"/><ellipse cx="32" cy="35" rx="6" ry="3" fill="#1a1410"/><path d="M30 35 L26 18" stroke="#6a7a90" stroke-width="3" stroke-linecap="round"/><path d="M34 35 L40 20" stroke="#8a96a8" stroke-width="3" stroke-linecap="round"/><path d="M26 18 L23 14" stroke="#aab8cc" stroke-width="2.5" stroke-linecap="round"/><path d="M40 20 L44 16" stroke="#c0cde0" stroke-width="2.5" stroke-linecap="round"/><circle cx="22" cy="13" r="2" fill="#ff8a4a"/><circle cx="45" cy="15" r="2" fill="#ffb05a"/><rect x="29" y="40" width="6" height="3" fill="#d85a30" opacity="0.7"/>',
+    radar:'<ellipse cx="32" cy="54" rx="18" ry="5" fill="#000" opacity="0.25"/><rect x="29" y="38" width="6" height="14" fill="#2a4a48"/><rect x="26" y="50" width="12" height="4" rx="1" fill="#1a3230"/><g transform="rotate(-30 32 34)"><ellipse cx="32" cy="34" rx="14" ry="6" fill="#3a6e68"/><ellipse cx="32" cy="34" rx="14" ry="6" fill="none" stroke="#5dd0c0" stroke-width="1.5"/><ellipse cx="32" cy="33" rx="9" ry="4" fill="#234a46"/><line x1="32" y1="34" x2="32" y2="26" stroke="#8af0e0" stroke-width="1.5"/><circle cx="32" cy="26" r="2" fill="#aef8ec"/></g><path d="M44 20 Q50 26 48 34" fill="none" stroke="#5dd0c0" stroke-width="1.5" opacity="0.7"/><path d="M48 16 Q57 25 54 37" fill="none" stroke="#5dd0c0" stroke-width="1.5" opacity="0.45"/><path d="M52 12 Q64 24 60 40" fill="none" stroke="#5dd0c0" stroke-width="1.5" opacity="0.25"/>'
   };
   return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 64 64">'+(S[code]||'')+'</svg>';
 }
-const BAT_ORDRE=['commandement','extracteur','raffinerie','centrale','collecteur','entrepot','caserne','laboratoire','chantier','arsenal'];
+const BAT_ORDRE=['commandement','extracteur','raffinerie','centrale','collecteur','entrepot','caserne','laboratoire','chantier','arsenal','radar'];
 let BAT_PLANETE=null;   // etat des batiments de la planete ouverte
 let VAISSEAUX_PLANETE=null; // etat des vaisseaux de la planete ouverte
 // meta + icones des vaisseaux
@@ -723,7 +894,10 @@ function majBandeauStock(){
 // ============================================================
 //  MOTEUR DE GALAXIE (identique a la generation serveur galaxy.js)
 // ============================================================
+let JEU_DEMARRE=false;
 function demarrerJeu(){
+  if(JEU_DEMARRE) return; // evite de doubler les intervalles si appele 2x
+  JEU_DEMARRE=true;
   const canvas=document.getElementById('sky');
   const ctx=canvas.getContext('2d');
   const scaleBadge=document.getElementById('scale-badge');
@@ -1180,7 +1354,7 @@ function demarrerJeu(){
     el.querySelectorAll('.cons-tab').forEach(t=>{ t.onclick=()=>{ CONSTR_ONGLET=t.dataset.tab; majConstruction(); }; });
   }
   function prerequisTexte(code){
-    const P={raffinerie:'Requires Extractor lvl 3',collecteur:'Requires Power Plant lvl 3',caserne:'Requires Warehouse lvl 2',laboratoire:'Requires Extractor 5 + Power Plant 3',chantier:'Requires Power Plant lvl 3',arsenal:'Requires Lab + Shipyard + Barracks'};
+    const P={raffinerie:'Requires Extractor lvl 3',collecteur:'Requires Power Plant lvl 3',caserne:'Requires Warehouse lvl 2',laboratoire:'Requires Extractor 5 + Power Plant 3',chantier:'Requires Power Plant lvl 3',arsenal:'Requires Lab + Shipyard + Barracks',radar:'Requires Power Plant lvl 2'};
     return P[code]||'Missing prerequisite';
   }
   // selecteur de vue (Batiments / Flotte) insere en haut du panneau
@@ -1309,7 +1483,7 @@ function demarrerJeu(){
   }
   function galaxyTempsClient(code,niv){
     // reproduit tempsBatiment cote client pour la barre (approx, le serveur fait foi)
-    const T={commandement:[60,1.8],extracteur:[45,1.7],raffinerie:[180,1.75],centrale:[50,1.7],collecteur:[150,1.75],entrepot:[40,1.65],caserne:[240,1.8],laboratoire:[300,1.8],chantier:[360,1.8],arsenal:[600,1.85]};
+    const T={commandement:[60,1.8],extracteur:[45,1.7],raffinerie:[180,1.75],centrale:[50,1.7],collecteur:[150,1.75],entrepot:[40,1.65],caserne:[240,1.8],laboratoire:[300,1.8],chantier:[360,1.8],arsenal:[600,1.85],radar:[200,1.7]};
     const t=T[code]||[60,1.7]; return Math.round(t[0]*Math.pow(t[1],niv-1));
   }
   async function lancerConstruction(code){
