@@ -140,9 +140,12 @@ async function preparerBase() {
       mission TEXT DEFAULT 'transit',
       depart TIMESTAMPTZ DEFAULT NOW(),
       arrivee TIMESTAMPTZ NOT NULL,
-      traitee BOOLEAN DEFAULT FALSE
+      traitee BOOLEAN DEFAULT FALSE,
+      detectee BOOLEAN DEFAULT FALSE
     )
   `);
+  // pour les bases deja existantes, ajoute la colonne si absente
+  await pool.query(`ALTER TABLE flottes ADD COLUMN IF NOT EXISTS detectee BOOLEAN DEFAULT FALSE`).catch(()=>{});
   // rapports de bataille : un par combat, lu puis archive
   await pool.query(`
     CREATE TABLE IF NOT EXISTS rapports (
@@ -157,7 +160,46 @@ async function preparerBase() {
       lu BOOLEAN DEFAULT FALSE
     )
   `);
-  console.log("Base prete : joueurs, sessions, titres, possessions, stocks, batiments, constructions, vaisseaux, chantiers, flottes, rapports OK");
+  // journal d'evenements : fil chronologique par joueur
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS evenements (
+      id SERIAL PRIMARY KEY,
+      joueur TEXT NOT NULL,
+      type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      lieu TEXT,
+      cree_le TIMESTAMPTZ DEFAULT NOW(),
+      lu BOOLEAN DEFAULT FALSE
+    )
+  `);
+  // points de recherche accumules par joueur (+ derniere recolte)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recherche (
+      joueur TEXT PRIMARY KEY,
+      points DOUBLE PRECISION DEFAULT 0,
+      recolte_le TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+  // technologies debloquees par joueur : une ligne par techno
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS technologies (
+      joueur TEXT NOT NULL,
+      code TEXT NOT NULL,
+      niveau INTEGER DEFAULT 0,
+      PRIMARY KEY (joueur, code)
+    )
+  `);
+  console.log("Base prete : ...evenements, recherche, technologies OK");
+}
+
+// cree un evenement dans le journal d'un joueur
+async function ajouterEvenement(joueur, type, message, lieu) {
+  try {
+    await pool.query(
+      "INSERT INTO evenements (joueur, type, message, lieu) VALUES ($1,$2,$3,$4)",
+      [joueur, type, message, lieu || null]
+    );
+  } catch (e) { /* le journal ne doit jamais bloquer une action */ }
 }
 
 // helper : une adresse est-elle deja occupee ?
@@ -385,15 +427,17 @@ app.post("/api/coloniser", async (req, res) => {
 // ============================================================
 // production effective d'une planete = production de base * bonus batiments.
 // L'extracteur ajoute +15% par niveau sur TOUTES les ressources.
-async function productionEffective(addr) {
+async function productionEffective(addr, bonusProd, bonusEnergie) {
   const base = galaxy.productionHoraire(addr);
   const niv = await niveauxBatiments(addr);
   const nivExtracteur = niv.extracteur || 0;
   const facteur = 1 + nivExtracteur * 0.15;
-  // bilan energetique : si deficit, la production tourne au ralenti
-  const energie = galaxy.bilanEnergie(niv);
+  // bilan energetique : si deficit, la production tourne au ralenti (bonus recherche reduit la conso)
+  const energie = galaxy.bilanEnergie(niv, bonusEnergie || 1);
+  // bonus de recherche (production) ; 1 par defaut si non fourni
+  const bonus = bonusProd || 1;
   const out = {};
-  for (const r in base) out[r] = base[r] * facteur * energie.rendement;
+  for (const r in base) out[r] = base[r] * facteur * energie.rendement * bonus;
   return out;
 }
 
@@ -408,8 +452,11 @@ async function encaisserEtLireStock(pseudo) {
     );
     const now = Date.now();
     const gains = {};   // ressource -> quantite gagnee
+    // bonus de recherche du joueur (production), calcule une fois
+    const techs = await technosDe(pseudo);
+    const bonus = galaxy.bonusTechnos(techs);
     for (const row of planetes.rows) {
-      const prod = await productionEffective(row.addr);   // {res: qte/heure} avec bonus
+      const prod = await productionEffective(row.addr, bonus.production, bonus.energie);   // {res: qte/heure} avec bonus
       const dernier = new Date(row.recolte_le).getTime();
       const heures = Math.max(0, (now - dernier) / 3600000);
       if (heures <= 0) continue;
@@ -447,8 +494,10 @@ async function encaisserEtLireStock(pseudo) {
     "SELECT addr FROM possessions WHERE joueur=$1", [pseudo]
   );
   const prodTotale = {};
+  const techsAff = await technosDe(pseudo);
+  const bonusAff = galaxy.bonusTechnos(techsAff);
   for (const row of planetes.rows) {
-    const prod = await productionEffective(row.addr);
+    const prod = await productionEffective(row.addr, bonusAff.production, bonusAff.energie);
     for (const res in prod) prodTotale[res] = (prodTotale[res]||0) + prod[res];
   }
   const stockObj = {};
@@ -569,6 +618,8 @@ async function finaliserConstructions(addr) {
       [addr, ct.code, ct.niveau_vise]
     );
     await pool.query("DELETE FROM constructions WHERE addr=$1", [addr]);
+    const bat = galaxy.BATIMENTS[ct.code];
+    await ajouterEvenement(ct.joueur, "construction", (bat ? bat.nom : ct.code) + " level " + ct.niveau_vise + " completed at " + addr + ".", addr);
   }
 }
 
@@ -578,6 +629,37 @@ async function niveauxBatiments(addr) {
   const out = {};
   for (const row of r.rows) out[row.code] = row.niveau;
   return out;
+}
+
+// technologies d'un joueur -> {code: niveau}
+async function technosDe(joueur) {
+  const r = await pool.query("SELECT code, niveau FROM technologies WHERE joueur=$1 AND niveau > 0", [joueur]);
+  const out = {};
+  for (const row of r.rows) out[row.code] = row.niveau;
+  return out;
+}
+
+// total des niveaux de laboratoire d'un joueur (sur toutes ses planetes)
+async function niveauLaboTotal(joueur) {
+  const r = await pool.query(
+    "SELECT COALESCE(SUM(b.niveau),0) AS total FROM batiments b JOIN possessions p ON p.addr=b.addr WHERE p.joueur=$1 AND b.code='laboratoire'", [joueur]
+  );
+  return parseInt(r.rows[0].total, 10) || 0;
+}
+
+// recolte les points de recherche produits depuis la derniere fois, retourne le total courant
+async function recolterRecherche(joueur) {
+  // assure une ligne
+  await pool.query("INSERT INTO recherche (joueur, points, recolte_le) VALUES ($1,0,NOW()) ON CONFLICT (joueur) DO NOTHING", [joueur]);
+  const r = await pool.query("SELECT points, recolte_le FROM recherche WHERE joueur=$1", [joueur]);
+  const points = r.rows[0].points; const depuis = new Date(r.rows[0].recolte_le).getTime();
+  const nivLabo = await niveauLaboTotal(joueur);
+  const parHeure = galaxy.pointsRechercheHoraire(nivLabo);
+  const heures = (Date.now() - depuis) / 3600000;
+  const gagnes = parHeure * heures;
+  const nouveau = points + gagnes;
+  await pool.query("UPDATE recherche SET points=$1, recolte_le=NOW() WHERE joueur=$2", [nouveau, joueur]);
+  return { points: nouveau, parHeure, nivLabo };
 }
 
 // GET etat des batiments d'une planete (+ construction en cours)
@@ -654,7 +736,9 @@ app.post("/api/construire", async (req, res) => {
       await client.query("UPDATE stocks SET quantite = quantite - $1 WHERE joueur=$2 AND ressource=$3", [cout[r], pseudo, r]);
     }
     // cree la construction (instantanee pour un admin)
-    const tempsSec = estAdmin(pseudo) ? 0 : galaxy.tempsBatiment(code, niveauVise);
+    const techsC = await technosDe(pseudo);
+    const bonusC = galaxy.bonusTechnos(techsC);
+    const tempsSec = estAdmin(pseudo) ? 0 : Math.round(galaxy.tempsBatiment(code, niveauVise) * bonusC.temps_construction);
     await client.query(
       "INSERT INTO constructions (addr, joueur, code, niveau_vise, fin) VALUES ($1,$2,$3,$4, NOW() + ($5 || ' seconds')::interval)",
       [addr, pseudo, code, niveauVise, tempsSec]
@@ -764,10 +848,46 @@ app.post("/api/produire", async (req, res) => {
 // traite les flottes arrivees : pour l'instant, depot des vaisseaux a destination
 // si la planete appartient au joueur (ou est libre et qu'il a un colonisateur).
 // Le combat/conquete viendra a l'etape 4.
-async function traiterArrivees(joueur) {
-  const arrivees = await pool.query(
-    "SELECT * FROM flottes WHERE joueur=$1 AND traitee=FALSE AND arrivee <= NOW()", [joueur]
+// ============================================================
+//  DETECTION : repere les flottes ennemies en approche de planetes
+//  equipees d'un radar, et alerte le defenseur (une seule fois).
+// ============================================================
+async function detecterAttaques() {
+  // flottes en transit non encore traitees ni detectees, en mission offensive
+  const enRoute = await pool.query(
+    "SELECT * FROM flottes WHERE traitee=FALSE AND detectee=FALSE AND mission='transit'"
   );
+  for (const f of enRoute.rows) {
+    const poss = await pool.query("SELECT joueur FROM possessions WHERE addr=$1", [f.destination]);
+    const proprio = poss.rows.length ? poss.rows[0].joueur : null;
+    // seulement si la cible appartient a un AUTRE joueur (vraie attaque)
+    if (!proprio || proprio === f.joueur) continue;
+    // la planete cible a-t-elle un radar ?
+    const niveaux = await niveauxBatiments(f.destination);
+    let portee = galaxy.porteeDetection(niveaux.radar || 0);
+    if (portee <= 0) continue;
+    // bonus recherche du defenseur (Sensor Arrays) : etend la portee
+    const techsDef = await technosDe(proprio);
+    const bonusDef = galaxy.bonusTechnos(techsDef);
+    portee = portee * bonusDef.detection;
+    // l'arrivee est-elle dans la fenetre de detection ?
+    const resteMs = new Date(f.arrivee).getTime() - Date.now();
+    if (resteMs <= portee * 1000 && resteMs > 0) {
+      const compo = JSON.parse(f.composition);
+      const nb = Object.values(compo).reduce((s, n) => s + n, 0);
+      const mn = Math.ceil(resteMs / 60000);
+      await ajouterEvenement(proprio, "alerte_attaque",
+        "⚠ Incoming fleet detected! " + nb + " enemy ships approaching " + f.destination + " (~" + mn + " min).", f.destination);
+      await pool.query("UPDATE flottes SET detectee=TRUE WHERE id=$1", [f.id]);
+    }
+  }
+}
+
+async function traiterArrivees(joueur) {
+  // si joueur est null/undefined : traite TOUTES les flottes arrivees (boucle de fond)
+  const arrivees = joueur
+    ? await pool.query("SELECT * FROM flottes WHERE joueur=$1 AND traitee=FALSE AND arrivee <= NOW()", [joueur])
+    : await pool.query("SELECT * FROM flottes WHERE traitee=FALSE AND arrivee <= NOW() LIMIT 200");
   for (const f of arrivees.rows) {
     const compo = JSON.parse(f.composition);
     const destSys = galaxy.parseAddr(f.destination);
@@ -785,6 +905,8 @@ async function traiterArrivees(joueur) {
         );
       }
       await pool.query("UPDATE flottes SET traitee=TRUE WHERE id=$1", [f.id]);
+      if (f.mission === 'retour') await ajouterEvenement(f.joueur, "flotte_retour", "Your fleet returned to " + f.destination + ".", f.destination);
+      else await ajouterEvenement(f.joueur, "flotte_arrivee", "Your fleet arrived at " + f.destination + ".", f.destination);
     } else if (!proprio && compo.colonisateur > 0) {
       // planete libre + colonisateur : on colonise
       await pool.query(
@@ -802,6 +924,7 @@ async function traiterArrivees(joueur) {
         );
       }
       await pool.query("UPDATE flottes SET traitee=TRUE, mission='colonisation' WHERE id=$1", [f.id]);
+      await ajouterEvenement(f.joueur, "colonisation", "You colonized " + f.destination + "!", f.destination);
     } else {
       // === COMBAT === planete ennemie (ou libre sans colonisateur)
       // 1) defense locale : garnison stationnee + bonus caserne
@@ -810,8 +933,18 @@ async function traiterArrivees(joueur) {
       const niveaux = await niveauxBatiments(f.destination);
       const defenseBonus = (niveaux.caserne || 0) * 100;  // caserne : +100 def/niv
 
+      // bonus techno des deux camps (attaque/blindage)
+      const techsAtt = await technosDe(f.joueur);
+      const bonusAtt = galaxy.bonusTechnos(techsAtt);
+      const bonusCombat = { attA: bonusAtt.attaque, armA: bonusAtt.blindage };
+      if (proprio) {
+        const techsDef = await technosDe(proprio);
+        const bonusDef = galaxy.bonusTechnos(techsDef);
+        bonusCombat.attD = bonusDef.attaque; bonusCombat.armD = bonusDef.blindage;
+      }
+
       // 2) resolution
-      const combat = galaxy.resoudreCombat(compo, garnison, defenseBonus);
+      const combat = galaxy.resoudreCombat(compo, garnison, defenseBonus, bonusCombat);
       const attRest = combat.attaquantRestant, defRest = combat.defenseurRestant;
       const attTotal = Object.values(attRest).reduce((s,n)=>s+n,0);
       const defTotal = Object.values(defRest).reduce((s,n)=>s+n,0);
@@ -849,6 +982,9 @@ async function traiterArrivees(joueur) {
         // rapports
         await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'attaquant','victoire',$4)", [f.joueur, proprio, f.destination, details]);
         if (proprio) await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'attaquant','defaite',$4)", [proprio, f.joueur, f.destination, details]);
+        // evenements
+        await ajouterEvenement(f.joueur, "conquete", "You conquered " + f.destination + (proprio ? " from " + proprio : "") + "!", f.destination);
+        if (proprio) await ajouterEvenement(proprio, "planete_perdue", "You lost " + f.destination + " to " + f.joueur + "!", f.destination);
       } else {
         // DEFENSE TIENT : les survivants de l'attaquant rentrent a l'origine
         const survivants = {}; for (const t in attRest) if (attRest[t] > 0) survivants[t] = attRest[t];
@@ -867,6 +1003,9 @@ async function traiterArrivees(joueur) {
         }
         await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'defenseur','defaite',$4)", [f.joueur, proprio, f.destination, details]);
         if (proprio) await pool.query("INSERT INTO rapports (joueur, adversaire, lieu, vainqueur, resultat, details) VALUES ($1,$2,$3,'defenseur','victoire',$4)", [proprio, f.joueur, f.destination, details]);
+        // evenements
+        await ajouterEvenement(f.joueur, "attaque_echouee", "Your attack on " + f.destination + " failed.", f.destination);
+        if (proprio) await ajouterEvenement(proprio, "defense", "You repelled an attack from " + f.joueur + " at " + f.destination + "!", f.destination);
       }
     }
   }
@@ -897,6 +1036,31 @@ app.post("/api/rapports-lus", async (req, res) => {
     const pseudo = await joueurDeSession(jeton);
     if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
     await pool.query("UPDATE rapports SET lu=TRUE WHERE joueur=$1", [pseudo]);
+    res.json({ succes: true });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// GET journal d'evenements du joueur
+app.get("/api/evenements", async (req, res) => {
+  const jeton = (req.query.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    const r = await pool.query(
+      "SELECT id, type, message, lieu, cree_le, lu FROM evenements WHERE joueur=$1 ORDER BY cree_le DESC LIMIT 50", [pseudo]
+    );
+    const nonLus = r.rows.filter(x => !x.lu).length;
+    res.json({ evenements: r.rows, nonLus });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST marquer les evenements comme lus
+app.post("/api/evenements-lus", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    await pool.query("UPDATE evenements SET lu=TRUE WHERE joueur=$1", [pseudo]);
     res.json({ succes: true });
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
@@ -956,10 +1120,13 @@ app.post("/api/envoyer", async (req, res) => {
       const q = cur.rows.length ? cur.rows[0].nombre : 0;
       await client.query("UPDATE vaisseaux SET nombre=$1 WHERE addr=$2 AND type=$3", [Math.max(0, q - composition[type]), origine, type]);
     }
-    // calcule la duree du trajet
+    // calcule la duree du trajet (avec bonus recherche : propulsion + navigation)
     const oa = galaxy.parseAddr(origine), od = galaxy.parseAddr(destination);
-    const vit = galaxy.vitesseFlotte(composition);
-    const duree = galaxy.dureeTrajet(oa.sysIdx, od.sysIdx, vit) || 120;
+    const techsJ = await technosDe(pseudo);
+    const bonusJ = galaxy.bonusTechnos(techsJ);
+    const vit = galaxy.vitesseFlotte(composition) * bonusJ.vitesse;   // propulsion
+    let duree = galaxy.dureeTrajet(oa.sysIdx, od.sysIdx, vit) || 120;
+    duree = Math.round(duree * bonusJ.trajet);   // navigation (reduction)
     const r = await client.query(
       "INSERT INTO flottes (joueur, origine, destination, composition, mission, arrivee) VALUES ($1,$2,$3,$4,'transit', NOW() + ($5 || ' seconds')::interval) RETURNING id",
       [pseudo, origine, destination, JSON.stringify(composition), duree]
@@ -1113,10 +1280,179 @@ app.post("/api/admin/action", async (req, res) => {
   } catch (e) { res.status(500).json({ erreur: e.message }); }
 });
 
+// ============================================================
+//  CLASSEMENTS (leaderboard) — semi-public
+//  Plusieurs categories : score global, planetes, developpement,
+//  puissance militaire (affichee en "tier", pas en chiffre exact).
+// ============================================================
+function tierPuissance(p) {
+  // convertit une puissance brute en tier (semi-public, cache le chiffre exact)
+  if (p <= 0) return { tier: "—", rang: 0 };
+  if (p < 200) return { tier: "I", rang: 1 };
+  if (p < 800) return { tier: "II", rang: 2 };
+  if (p < 2500) return { tier: "III", rang: 3 };
+  if (p < 8000) return { tier: "IV", rang: 4 };
+  if (p < 20000) return { tier: "V", rang: 5 };
+  return { tier: "VI", rang: 6 };
+}
+
+// ============================================================
+//  RECHERCHE : etat de l'arbre techno + deblocage
+// ============================================================
+// GET etat de la recherche du joueur (points, technos, arbre complet)
+app.get("/api/recherche", async (req, res) => {
+  const jeton = (req.query.jeton || "").trim();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    const etat = await recolterRecherche(pseudo);
+    const techs = await technosDe(pseudo);
+    // construit l'arbre avec, pour chaque techno : niveau actuel, cout prochain, prerequis ok
+    const arbre = {};
+    for (const code in galaxy.TECHNOLOGIES) {
+      const t = galaxy.TECHNOLOGIES[code];
+      const niv = techs[code] || 0;
+      arbre[code] = {
+        nom: t.nom, famille: t.famille, desc: t.desc, max: t.max,
+        niveau: niv,
+        coutProchain: niv < t.max ? galaxy.coutTechno(code, niv + 1) : null,
+        prerequis: t.prerequis,
+        prerequisOk: galaxy.prerequisTechnoOk(code, techs),
+        effet: t.effet
+      };
+    }
+    res.json({ points: Math.floor(etat.points), parHeure: etat.parHeure, nivLabo: etat.nivLabo, arbre });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
+// POST debloquer / ameliorer une technologie
+app.post("/api/rechercher", async (req, res) => {
+  const jeton = (req.body.jeton || "").trim();
+  const code = (req.body.code || "").trim();
+  if (!galaxy.TECHNOLOGIES[code]) return res.status(400).json({ erreur: "Unknown technology" });
+  const client = await pool.connect();
+  try {
+    const pseudo = await joueurDeSession(jeton);
+    if (!pseudo) return res.status(401).json({ erreur: "Not authenticated" });
+    // recolte d'abord (hors transaction, simple)
+    await recolterRecherche(pseudo);
+    await client.query("BEGIN");
+    const techsR = await client.query("SELECT code, niveau FROM technologies WHERE joueur=$1", [pseudo]);
+    const techs = {}; for (const row of techsR.rows) techs[row.code] = row.niveau;
+    const t = galaxy.TECHNOLOGIES[code];
+    const nivActuel = techs[code] || 0;
+    if (nivActuel >= t.max) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Maximum level reached." }); }
+    if (!galaxy.prerequisTechnoOk(code, techs)) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Prerequisites not met." }); }
+    const niveauVise = nivActuel + 1;
+    const cout = galaxy.coutTechno(code, niveauVise);
+    const pr = await client.query("SELECT points FROM recherche WHERE joueur=$1 FOR UPDATE", [pseudo]);
+    const points = pr.rows.length ? pr.rows[0].points : 0;
+    if (points < cout) { await client.query("ROLLBACK"); return res.json({ succes: false, message: "Not enough research points." }); }
+    await client.query("UPDATE recherche SET points = points - $1 WHERE joueur=$2", [cout, pseudo]);
+    await client.query(
+      `INSERT INTO technologies (joueur, code, niveau) VALUES ($1,$2,$3)
+       ON CONFLICT (joueur, code) DO UPDATE SET niveau=$3`,
+      [pseudo, code, niveauVise]
+    );
+    await client.query("COMMIT");
+    await ajouterEvenement(pseudo, "recherche", "Researched " + t.nom + " level " + niveauVise + ".", null);
+    res.json({ succes: true, code, niveau: niveauVise });
+  } catch (e) {
+    await client.query("ROLLBACK").catch(()=>{});
+    res.status(500).json({ erreur: e.message });
+  } finally { client.release(); }
+});
+
+app.get("/api/classements", async (req, res) => {
+  try {
+    // 1) tous les joueurs avec mot de passe (comptes reels), non bannis
+    const joueurs = await pool.query("SELECT nom, banni FROM joueurs WHERE mdp_hash IS NOT NULL AND banni=FALSE");
+    // 2) planetes par joueur
+    const possR = await pool.query("SELECT joueur, addr FROM possessions");
+    const planetesPar = {}; const addrPar = {};
+    for (const row of possR.rows) {
+      planetesPar[row.joueur] = (planetesPar[row.joueur] || 0) + 1;
+      (addrPar[row.joueur] = addrPar[row.joueur] || []).push(row.addr);
+    }
+    // 3) developpement : somme des niveaux de batiments par joueur (via leurs planetes)
+    const batR = await pool.query("SELECT addr, niveau FROM batiments");
+    const nivParAddr = {}; for (const row of batR.rows) nivParAddr[row.addr] = (nivParAddr[row.addr] || 0) + row.niveau;
+    // 4) flotte : vaisseaux stationnes par joueur (puissance)
+    const vaiR = await pool.query("SELECT addr, type, nombre FROM vaisseaux WHERE nombre > 0");
+    const flotteParAddr = {};
+    for (const row of vaiR.rows) { (flotteParAddr[row.addr] = flotteParAddr[row.addr] || {})[row.type] = row.nombre; }
+
+    // construit les stats par joueur
+    const stats = [];
+    for (const j of joueurs.rows) {
+      const nom = j.nom;
+      const addrs = addrPar[nom] || [];
+      const planetes = planetesPar[nom] || 0;
+      let dev = 0; for (const a of addrs) dev += nivParAddr[a] || 0;
+      // puissance = somme attaque+blindage de toutes les flottes stationnees du joueur
+      let puissance = 0;
+      for (const a of addrs) { const f = flotteParAddr[a]; if (f) { const p = galaxy.puissanceFlotte(f); puissance += p.attaque + p.blindage * 0.3; } }
+      // production totale (pour le score)
+      let prod = 0; for (const a of addrs) { const ph = galaxy.productionHoraire(a); for (const k in ph) prod += ph[k]; }
+      // SCORE global : planetes (gros poids) + developpement + puissance + production
+      const score = Math.round(planetes * 1000 + dev * 120 + puissance * 0.5 + prod * 2);
+      stats.push({ nom, planetes, dev, puissance, prod: Math.round(prod), score });
+    }
+
+    function classe(critere) {
+      return [...stats].sort((a, b) => b[critere] - a[critere])
+        .map((s, i) => ({ rang: i + 1, nom: s.nom, valeur: s[critere] }));
+    }
+
+    res.json({
+      total: stats.length,
+      score: [...stats].sort((a,b)=>b.score-a.score).map((s,i)=>({ rang:i+1, nom:s.nom, score:s.score, planetes:s.planetes })),
+      planetes: classe("planetes"),
+      developpement: classe("dev"),
+      // puissance : on renvoie le TIER, pas le chiffre exact (semi-public)
+      puissance: [...stats].sort((a,b)=>b.puissance-a.puissance).map((s,i)=>({ rang:i+1, nom:s.nom, tier: tierPuissance(s.puissance).tier }))
+    });
+  } catch (e) { res.status(500).json({ erreur: e.message }); }
+});
+
 app.get("/sante", (req, res) => res.json({ statut: "ok", version: "1.0" }));
 
+// ============================================================
+//  BOUCLE DE FOND : traite les flottes arrivees de TOUS les joueurs,
+//  qu'ils soient connectes ou non. C'est ce qui rend l'univers
+//  reellement persistant (conquetes, colonisations, retours).
+// ============================================================
+let boucleEnCours = false;
+let compteurNettoyage = 0;
+async function boucleDeFond() {
+  if (boucleEnCours) return; // evite les chevauchements
+  boucleEnCours = true;
+  try {
+    await traiterArrivees(null);
+    await detecterAttaques();
+    // nettoyage periodique (toutes les ~60 boucles, soit ~5 min)
+    compteurNettoyage++;
+    if (compteurNettoyage >= 60) {
+      compteurNettoyage = 0;
+      // sessions de plus de 30 jours, flottes traitees de plus de 1 jour,
+      // rapports de plus de 30 jours, resets expires.
+      await pool.query("DELETE FROM sessions WHERE cree_le < NOW() - INTERVAL '30 days'").catch(()=>{});
+      await pool.query("DELETE FROM flottes WHERE traitee=TRUE AND arrivee < NOW() - INTERVAL '1 day'").catch(()=>{});
+      await pool.query("DELETE FROM rapports WHERE cree_le < NOW() - INTERVAL '30 days'").catch(()=>{});
+      await pool.query("DELETE FROM evenements WHERE cree_le < NOW() - INTERVAL '14 days'").catch(()=>{});
+      await pool.query("DELETE FROM resets WHERE expire < NOW()").catch(()=>{});
+    }
+  }
+  catch (e) { console.error("Boucle de fond :", e.message); }
+  finally { boucleEnCours = false; }
+}
+
 preparerBase()
-  .then(() => app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`)))
+  .then(() => {
+    app.listen(PORT, () => console.log(`Serveur demarre sur ${PORT}`));
+    // lance la boucle de fond toutes les 5 secondes
+    setInterval(boucleDeFond, 5000);
+  })
   .catch((e) => {
     console.error("Erreur base :", e.message);
     app.listen(PORT, () => console.log(`Serveur demarre (base en erreur) sur ${PORT}`));

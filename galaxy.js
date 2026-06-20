@@ -322,8 +322,23 @@ const BATIMENTS = {
     prerequis: { laboratoire: 1, chantier: 1, caserne: 1 }, max: 5,
     effet: { type: "flotte_guerre", bonus: 1 },
     desc: "Unlocks the most powerful war fleets."
+  },
+  radar: {
+    nom: "Detection Array", branche: "militaire",
+    coutBase: { silicates: 250, cuivre: 150, cristaux: 40 }, mult: 1.55,
+    tempsBase: 200, multTemps: 1.7, energie: 30,
+    prerequis: { centrale: 2 }, max: 8,
+    effet: { type: "detection", bonus: 1 },
+    desc: "Detects incoming enemy fleets before they strike. Higher levels watch farther."
   }
 };
+
+// portee de detection d'une planete selon le niveau de son radar (0 = aucune)
+function porteeDetection(nivRadar) {
+  if (!nivRadar || nivRadar <= 0) return 0;
+  // niveau 1 : detecte les attaques arrivant dans <2min ; +90s par niveau
+  return 120 + (nivRadar - 1) * 90;
+}
 
 // cout d'un batiment a un niveau donne (le niveau qu'on VEUT atteindre)
 function coutBatiment(code, niveauVise) {
@@ -353,6 +368,7 @@ function prerequisOk(code, niveauxActuels) {
 }
 
 module.exports.BATIMENTS = BATIMENTS;
+module.exports.porteeDetection = porteeDetection;
 module.exports.coutBatiment = coutBatiment;
 module.exports.tempsBatiment = tempsBatiment;
 module.exports.prerequisOk = prerequisOk;
@@ -365,7 +381,7 @@ module.exports.prerequisOk = prerequisOk;
 //  - chaque autre batiment consomme BATIMENTS[code].energie * niveau
 //  Si conso > prod : rendement = prod/conso (les batiments tournent au ralenti)
 // ============================================================
-function bilanEnergie(niveaux) {
+function bilanEnergie(niveaux, bonusEnergie) {
   let production = 30, consommation = 0;  // +30 energie de base gratuite par planete
   for (const code in niveaux) {
     const niv = niveaux[code] || 0;
@@ -378,6 +394,8 @@ function bilanEnergie(niveaux) {
       consommation += b.energie * niv;
     }
   }
+  // bonus recherche : reduit la consommation (Energy Efficiency)
+  if (bonusEnergie && bonusEnergie < 1) consommation = consommation * bonusEnergie;
   // rendement : 1 si on a assez d'energie, sinon ratio (jamais < 0.1 pour eviter le blocage total)
   let rendement = 1;
   if (consommation > production && consommation > 0) {
@@ -478,21 +496,25 @@ module.exports.vitesseFlotte = vitesseFlotte;
 //  defenseBonus : points d'attaque/blindage ajoutes au defenseur
 //  (vient de la caserne orbitale).
 // ============================================================
-function resoudreCombat(attaquant, defenseur, defenseBonus) {
+function resoudreCombat(attaquant, defenseur, defenseBonus, bonus) {
   // copies de travail {type: nombre}
   const A = Object.assign({}, attaquant);
   const D = Object.assign({}, defenseur);
   defenseBonus = defenseBonus || 0;
+  // bonus techno : { attA, armA, attD, armD } multiplicateurs (1 = neutre)
+  bonus = bonus || {};
+  const attA = bonus.attA || 1, armA = bonus.armA || 1;
+  const attD = bonus.attD || 1, armD = bonus.armD || 1;
 
   // PV "courants" stockes globalement par camp, repartis a la fin en pertes entieres
-  function totalBlindage(camp, bonus) {
-    let b = bonus || 0;
-    for (const t in camp) b += (VAISSEAUX[t] ? VAISSEAUX[t].blindage : 0) * (camp[t] || 0);
+  function totalBlindage(camp, bonusPlat, multArm) {
+    let b = bonusPlat || 0;
+    for (const t in camp) b += (VAISSEAUX[t] ? VAISSEAUX[t].blindage : 0) * (camp[t] || 0) * (multArm || 1);
     return b;
   }
-  function totalAttaque(camp, bonus) {
-    let a = bonus || 0;
-    for (const t in camp) a += (VAISSEAUX[t] ? VAISSEAUX[t].attaque : 0) * (camp[t] || 0);
+  function totalAttaque(camp, bonusPlat, multAtt) {
+    let a = bonusPlat || 0;
+    for (const t in camp) a += (VAISSEAUX[t] ? VAISSEAUX[t].attaque : 0) * (camp[t] || 0) * (multAtt || 1);
     return a;
   }
   // applique des degats a un camp : detruit des vaisseaux (plus fragiles d'abord)
@@ -509,10 +531,10 @@ function resoudreCombat(attaquant, defenseur, defenseBonus) {
 
   let rounds = 0;
   while (rounds < 8) {
-    const aAtt = totalAttaque(A, 0);
-    const dAtt = totalAttaque(D, defenseBonus);
-    const aBli = totalBlindage(A, 0);
-    const dBli = totalBlindage(D, defenseBonus);
+    const aAtt = totalAttaque(A, 0, attA);
+    const dAtt = totalAttaque(D, defenseBonus, attD);
+    const aBli = totalBlindage(A, 0, armA);
+    const dBli = totalBlindage(D, defenseBonus, armD);
     if (aBli <= 0 || dBli <= 0) break;
     if (aAtt <= 0 && dAtt <= 0) break;
     // les deux frappent simultanement
@@ -532,7 +554,7 @@ function resoudreCombat(attaquant, defenseur, defenseBonus) {
   else if (dReste > 0 && aReste <= 0) vainqueur = "defenseur";
   else {
     // les deux survivent (8 rounds) : le plus de blindage restant gagne
-    vainqueur = totalBlindage(A, 0) >= totalBlindage(D, defenseBonus) ? "attaquant" : "defenseur";
+    vainqueur = totalBlindage(A, 0, armA) >= totalBlindage(D, defenseBonus, armD) ? "attaquant" : "defenseur";
   }
   return { vainqueur, attaquantRestant: A, defenseurRestant: D, rounds };
 }
@@ -573,3 +595,140 @@ function dureeTrajet(idxA, idxB, vitesseFlotte) {
 module.exports.coordSysteme = coordSysteme;
 module.exports.distanceSystemes = distanceSystemes;
 module.exports.dureeTrajet = dureeTrajet;
+
+// ============================================================
+//  ARBRE DE RECHERCHE (v1.0)
+//  Le Laboratoire produit des "points de recherche" (PR) par heure.
+//  On depense ces PR pour debloquer des technologies a effets
+//  permanents sur tout l'empire. Chaque techno a plusieurs niveaux,
+//  un cout croissant, et parfois des prerequis (autres technos).
+//  3 familles : economie, militaire, expansion.
+// ============================================================
+
+// production de points de recherche par heure selon le niveau du labo
+function pointsRechercheHoraire(nivLabo) {
+  if (!nivLabo || nivLabo <= 0) return 0;
+  // labo niv 1 : 20 PR/h ; croissance pour recompenser les hauts niveaux
+  return Math.round(20 * Math.pow(1.6, nivLabo - 1));
+}
+
+// definitions des technologies
+// cle : { nom, famille, max, coutBase, mult, effet{type,parNiveau}, prerequis{tech:niv}, desc }
+const TECHNOLOGIES = {
+  // === ECONOMIE ===
+  production: {
+    nom: "Resource Extraction", famille: "economie", max: 20,
+    coutBase: 100, mult: 1.5,
+    effet: { type: "production", parNiveau: 0.05 }, // +5% production / niveau
+    prerequis: {}, desc: "+5% resource production per level, empire-wide."
+  },
+  stockage: {
+    nom: "Storage Logistics", famille: "economie", max: 15,
+    coutBase: 80, mult: 1.45,
+    effet: { type: "stockage", parNiveau: 0.10 }, // +10% capacite / niveau
+    prerequis: {}, desc: "+10% storage capacity per level."
+  },
+  energie: {
+    nom: "Energy Efficiency", famille: "economie", max: 12,
+    coutBase: 150, mult: 1.5,
+    effet: { type: "energie", parNiveau: 0.04 }, // -4% conso energie / niveau
+    prerequis: { production: 3 }, desc: "-4% energy consumption per level."
+  },
+  raffinage: {
+    nom: "Advanced Refining", famille: "economie", max: 10,
+    coutBase: 300, mult: 1.55,
+    effet: { type: "raffinage", parNiveau: 0.06 }, // +6% metaux rares / niveau
+    prerequis: { production: 5 }, desc: "+6% rare-metal output per level."
+  },
+  // === MILITAIRE ===
+  armement: {
+    nom: "Weapon Systems", famille: "militaire", max: 20,
+    coutBase: 120, mult: 1.5,
+    effet: { type: "attaque", parNiveau: 0.05 }, // +5% attaque vaisseaux / niveau
+    prerequis: {}, desc: "+5% ship attack per level."
+  },
+  blindage: {
+    nom: "Hull Plating", famille: "militaire", max: 20,
+    coutBase: 120, mult: 1.5,
+    effet: { type: "blindage", parNiveau: 0.05 }, // +5% blindage vaisseaux / niveau
+    prerequis: {}, desc: "+5% ship armor per level."
+  },
+  propulsion: {
+    nom: "Propulsion", famille: "militaire", max: 15,
+    coutBase: 100, mult: 1.5,
+    effet: { type: "vitesse", parNiveau: 0.06 }, // +6% vitesse flotte / niveau
+    prerequis: {}, desc: "+6% fleet speed per level."
+  },
+  detection: {
+    nom: "Sensor Arrays", famille: "militaire", max: 10,
+    coutBase: 200, mult: 1.5,
+    effet: { type: "detection", parNiveau: 0.15 }, // +15% portee radar / niveau
+    prerequis: { armement: 3 }, desc: "+15% radar detection range per level."
+  },
+  // === EXPANSION ===
+  colonisation: {
+    nom: "Colonization Tech", famille: "expansion", max: 10,
+    coutBase: 150, mult: 1.5,
+    effet: { type: "cout_colon", parNiveau: 0.05 }, // -5% cout colonisateur / niveau
+    prerequis: {}, desc: "-5% colony ship cost per level."
+  },
+  navigation: {
+    nom: "Hyperspace Navigation", famille: "expansion", max: 12,
+    coutBase: 180, mult: 1.5,
+    effet: { type: "trajet", parNiveau: 0.04 }, // -4% duree trajet / niveau
+    prerequis: { propulsion: 2 }, desc: "-4% travel time per level."
+  },
+  construction: {
+    nom: "Construction Methods", famille: "expansion", max: 12,
+    coutBase: 160, mult: 1.5,
+    effet: { type: "temps_construction", parNiveau: 0.04 }, // -4% temps construction / niveau
+    prerequis: {}, desc: "-4% building construction time per level."
+  }
+};
+
+// cout en PR d'une techno pour atteindre un niveau donne
+function coutTechno(code, niveauVise) {
+  const t = TECHNOLOGIES[code];
+  if (!t) return null;
+  return Math.round(t.coutBase * Math.pow(t.mult, niveauVise - 1));
+}
+
+// les prerequis d'une techno sont-ils remplis ? (techsActuelles = {code: niveau})
+function prerequisTechnoOk(code, techsActuelles) {
+  const t = TECHNOLOGIES[code];
+  if (!t || !t.prerequis) return true;
+  for (const req in t.prerequis) {
+    if ((techsActuelles[req] || 0) < t.prerequis[req]) return false;
+  }
+  return true;
+}
+
+// calcule les bonus cumules d'un ensemble de technos -> multiplicateurs
+// retourne un objet avec tous les bonus applicables
+function bonusTechnos(techs) {
+  const b = {
+    production: 1, stockage: 1, energie: 1, raffinage: 1,
+    attaque: 1, blindage: 1, vitesse: 1, detection: 1,
+    cout_colon: 1, trajet: 1, temps_construction: 1
+  };
+  for (const code in techs) {
+    const niv = techs[code]; const t = TECHNOLOGIES[code];
+    if (!t || niv <= 0) continue;
+    const e = t.effet; const total = e.parNiveau * niv;
+    // bonus positifs (augmentent) vs reductions (diminuent)
+    if (["production","stockage","raffinage","attaque","blindage","vitesse","detection"].includes(e.type)) {
+      b[e.type] += total;
+    } else {
+      // energie, cout_colon, trajet, temps_construction : reductions
+      b[e.type] -= total;
+      if (b[e.type] < 0.2) b[e.type] = 0.2; // plancher : jamais en dessous de 20%
+    }
+  }
+  return b;
+}
+
+module.exports.pointsRechercheHoraire = pointsRechercheHoraire;
+module.exports.TECHNOLOGIES = TECHNOLOGIES;
+module.exports.coutTechno = coutTechno;
+module.exports.prerequisTechnoOk = prerequisTechnoOk;
+module.exports.bonusTechnos = bonusTechnos;
